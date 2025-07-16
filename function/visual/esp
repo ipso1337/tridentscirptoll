@@ -1,1 +1,173 @@
+-- ESP Module
+local ESP = {}
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = game:GetService("Workspace").CurrentCamera
 
+-- Состояние режимов ESP
+local BoxESPEnabled = false
+local CornerESPEnabled = false
+local 3DBoxESPEnabled = false
+
+-- Таблица для хранения элементов ESP
+local ESPObjects = {}
+
+-- Вспомогательная функция для создания Box ESP
+local function CreateBox(player)
+    local box = Instance.new("BoxHandleAdornment")
+    box.Size = Vector3.new(4, 6, 4)
+    box.Color3 = Color3.fromRGB(255, 0, 0)
+    box.Transparency = 0.5
+    box.AlwaysOnTop = true
+    box.Adornee = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    box.Parent = game:GetService("CoreGui")
+    return box
+end
+
+-- Вспомогательная функция для создания Corner ESP
+local function CreateCorner(player)
+    local corners = {}
+    for i = 1, 8 do
+        local corner = Instance.new("BoxHandleAdornment")
+        corner.Size = Vector3.new(0.5, 0.5, 0.5)
+        corner.Color3 = Color3.fromRGB(0, 255, 0)
+        corner.Transparency = 0.5
+        corner.AlwaysOnTop = true
+        corner.Adornee = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        corner.Parent = game:GetService("CoreGui")
+        corners[i] = corner
+    end
+    return corners
+end
+
+-- Вспомогательная функция для создания 3D Box ESP
+local function Create3DBox(player)
+    local box = Instance.new("SelectionBox")
+    box.LineThickness = 0.05
+    box.Color3 = Color3.fromRGB(0, 0, 255)
+    box.SurfaceColor3 = Color3.fromRGB(0, 0, 255)
+    box.SurfaceTransparency = 0.9
+    box.Adornee = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    box.Parent = game:GetService("CoreGui")
+    return box
+end
+
+-- Обновление позиций Corner ESP
+local function UpdateCorners(corners, rootPart)
+    if not rootPart then return end
+    local size = Vector3.new(4, 6, 4)
+    local positions = {
+        Vector3.new(-size.X/2, -size.Y/2, -size.Z/2), -- Нижний левый задний
+        Vector3.new(size.X/2, -size.Y/2, -size.Z/2),  -- Нижний правый задний
+        Vector3.new(-size.X/2, size.Y/2, -size.Z/2),  -- Верхний левый задний
+        Vector3.new(size.X/2, size.Y/2, -size.Z/2),   -- Верхний правый задний
+        Vector3.new(-size.X/2, -size.Y/2, size.Z/2),  -- Нижний левый передний
+        Vector3.new(size.X/2, -size.Y/2, size.Z/2),   -- Нижний правый передний
+        Vector3.new(-size.X/2, size.Y/2, size.Z/2),   -- Верхний левый передний
+        Vector3.new(size.X/2, size.Y/2, size.Z/2)     -- Верхний правый передний
+    }
+    for i, corner in ipairs(corners) do
+        corner.CFrame = rootPart.CFrame * CFrame.new(positions[i])
+    end
+end
+
+-- Инициализация ESP
+function ESP:Init()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            ESPObjects[player] = { Box = nil, Corners = nil, Box3D = nil }
+        end
+    end
+
+    Players.PlayerAdded:Connect(function(player)
+        if player ~= Players.LocalPlayer then
+            ESPObjects[player] = { Box = nil, Corners = nil, Box3D = nil }
+        end
+    end)
+
+    Players.PlayerRemoving:Connect(function(player)
+        if ESPObjects[player] then
+            if ESPObjects[player].Box then ESPObjects[player].Box:Destroy() end
+            if ESPObjects[player].Corners then
+                for _, corner in ipairs(ESPObjects[player].Corners) do
+                    corner:Destroy()
+                end
+            end
+            if ESPObjects[player].Box3D then ESPObjects[player].Box3D:Destroy() end
+            ESPObjects[player] = nil
+        end
+    end)
+
+    RunService.RenderStepped:Connect(function()
+        for player, objects in pairs(ESPObjects) do
+            local character = player.Character
+            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+                if objects.Box then
+                    objects.Box.Adornee = rootPart
+                    objects.Box.Size = Vector3.new(4, 6, 4)
+                end
+                if objects.Corners then
+                    UpdateCorners(objects.Corners, rootPart)
+                end
+                if objects.Box3D then
+                    objects.Box3D.Adornee = rootPart
+                end
+            else
+                if objects.Box then objects.Box.Adornee = nil end
+                if objects.Corners then
+                    for _, corner in ipairs(objects.Corners) do
+                        corner.Adornee = nil
+                    end
+                end
+                if objects.Box3D then objects.Box3D.Adornee = nil end
+            end
+        end
+    end)
+end
+
+-- Переключение Box ESP
+function ESP:ToggleBoxESP(enabled)
+    BoxESPEnabled = enabled
+    for player, objects in pairs(ESPObjects) do
+        if enabled and not objects.Box and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            objects.Box = CreateBox(player)
+        elseif objects.Box then
+            objects.Box:Destroy()
+            objects.Box = nil
+        end
+    end
+end
+
+-- Переключение Corner ESP
+function ESP:ToggleCornerESP(enabled)
+    CornerESPEnabled = enabled
+    for player, objects in pairs(ESPObjects) do
+        if enabled and not objects.Corners and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            objects.Corners = CreateCorner(player)
+        elseif objects.Corners then
+            for _, corner in ipairs(objects.Corners) do
+                corner:Destroy()
+            end
+            objects.Corners = nil
+        end
+    end
+end
+
+-- Переключение 3D Box ESP
+function ESP:Toggle3DBoxESP(enabled)
+    3DBoxESPEnabled = enabled
+    for player, objects in pairs(ESPObjects) do
+        if enabled and not objects.Box3D and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            objects.Box3D = Create3DBox(player)
+        elseif objects.Box3D then
+            objects.Box3D:Destroy()
+            objects.Box3D = nil
+        end
+    end
+end
+
+-- Инициализация при загрузке
+ESP:Init()
+
+return ESP

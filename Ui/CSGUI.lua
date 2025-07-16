@@ -4,6 +4,7 @@ local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 local Options = Library.Options
+local Toggles = Library.Toggles
 
 -- Настройка глобальных параметров библиотеки
 Library.ShowToggleFrameInKeybinds = true
@@ -30,7 +31,41 @@ local Tabs = {
     Other = Window:AddTab('Other'),
 }
 
--- Настройка вкладки Other (ранее UI Settings)
+-- Регистрация ESP на вкладке Visual
+local VisualGroup = Tabs.Visual:AddLeftGroupbox('ESP Settings')
+
+-- Переключатели для режимов ESP
+VisualGroup:AddToggle('ESPBox', {
+    Text = 'Box ESP',
+    Default = false,
+    Tooltip = 'Enable Box ESP for players',
+    Callback = function(Value)
+        local ESP = require(game:GetService("ReplicatedStorage"):WaitForChild("ESP"))
+        ESP:ToggleBoxESP(Value)
+    end
+})
+
+VisualGroup:AddToggle('ESPCorner', {
+    Text = 'Corner ESP',
+    Default = false,
+    Tooltip = 'Enable Corner ESP for players',
+    Callback = function(Value)
+        local ESP = require(game:GetService("ReplicatedStorage"):WaitForChild("ESP"))
+        ESP:ToggleCornerESP(Value)
+    end
+})
+
+VisualGroup:AddToggle('ESP3DBox', {
+    Text = '3D Box ESP',
+    Default = false,
+    Tooltip = 'Enable 3D Box ESP for players',
+    Callback = function(Value)
+        local ESP = require(game:GetService("ReplicatedStorage"):WaitForChild("ESP"))
+        ESP:Toggle3DBoxESP(Value)
+    end
+})
+
+-- Настройка вкладки Other
 local MenuGroup = Tabs.Other:AddLeftGroupbox('Menu')
 
 MenuGroup:AddToggle("KeybindMenuOpen", { 
@@ -79,3 +114,7 @@ ThemeManager:ApplyToTab(Tabs.Other)
 
 -- Автозагрузка конфигурации
 SaveManager:LoadAutoloadConfig()
+
+-- Загрузка логики ESP
+local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/esp"))()
+game:GetService("ReplicatedStorage"):WaitForChild("ESP").Value = ESP

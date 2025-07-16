@@ -1,5 +1,5 @@
--- New example script written by wally
--- You can suggest changes with a pull request or something
+-- Script by ipso1337
+-- Loader: loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/Ui/CSGUI.lua"))()
 
 local repo = 'https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/'
 
@@ -9,12 +9,12 @@ local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 local Options = Library.Options
 local Toggles = Library.Toggles
 
-Library.ShowToggleFrameInKeybinds = true -- Make toggle keybinds work inside the keybinds UI (aka adds a toggle to the UI). Good for mobile users (Default value = true)
-Library.ShowCustomCursor = true -- Toggles the Linoria cursor globally (Default value = true)
-Library.NotifySide = "Left" -- Changes the side of the notifications globally (Left, Right) (Default value = Left)
+Library.ShowToggleFrameInKeybinds = true
+Library.ShowCustomCursor = true
+Library.NotifySide = "Left"
 
 local Window = Library:CreateWindow({
-	Title = 'Example menu',
+	Title = 'Trident Script',
 	Center = true,
 	AutoShow = true,
 	Resizable = true,
@@ -24,94 +24,148 @@ local Window = Library:CreateWindow({
 	MenuFadeTime = 0.2
 })
 
--- You do not have to set your tabs & groups up this way, just a preference.
+-- Create tabs
 local Tabs = {
-	-- Existing tab
-	Main = Window:AddTab('Main'),
-	-- New tabs
 	Combat = Window:AddTab('Combat'),
 	Visual = Window:AddTab('Visual'),
 	Misc = Window:AddTab('Misc'),
-	-- Renamed UI Settings to Other
 	Other = Window:AddTab('Other'),
 }
 
--- Groupbox and Tabbox inherit the same functions
-local LeftGroupBox = Tabs.Main:AddLeftGroupbox('Groupbox')
-
--- Existing Main tab content
-LeftGroupBox:AddToggle('MyToggle', {
-	Text = 'This is a toggle',
-	Tooltip = 'This is a tooltip',
-	DisabledTooltip = 'I am disabled!',
-	Default = true,
-	Disabled = false,
-	Visible = true,
-	Risky = false,
+-- Combat Tab
+local CombatLeftGroupBox = Tabs.Combat:AddLeftGroupbox('Combat Features')
+CombatLeftGroupBox:AddToggle('Aimbot', {
+	Text = 'Aimbot',
+	Tooltip = 'Automatically aims at enemies',
+	Default = false,
 	Callback = function(Value)
-		print('[cb] MyToggle changed to:', Value)
-	end
-}):AddColorPicker('ColorPicker1', {
-	Default = Color3.new(1, 0, 0),
-	Title = 'Some color1',
-	Transparency = 0,
-	Callback = function(Value, Transparency)
-		print('[cb] Color changed!', Value, '| Transparency changed to:', Transparency)
-	end
-}):AddColorPicker('ColorPicker2', {
-	Default = Color3.new(0, 1, 0),
-	Title = 'Some color2',
-	Transparency = 0,
-	Callback = function(Value, Transparency)
-		print('[cb] Color changed!', Value, '| Transparency changed to:', Transparency)
-	end
-}):AddColorPicker('ColorPicker3', {
-	Default = Color3.new(0, 0, 1),
-	Title = 'Some color3',
-	Transparency = 0,
-	Callback = function(Value, Transparency)
-		print('[cb] Color changed!', Value, '| Transparency changed to:', Transparency)
+		print('[Combat] Aimbot:', Value)
 	end
 })
 
-Toggles.MyToggle:OnChanged(function()
-	print('MyToggle changed to:', Toggles.MyToggle.Value)
+CombatLeftGroupBox:AddToggle('ESP', {
+	Text = 'ESP',
+	Tooltip = 'Shows enemy locations',
+	Default = false,
+	Callback = function(Value)
+		print('[Combat] ESP:', Value)
+	end
+})
+
+-- Visual Tab
+local VisualLeftGroupBox = Tabs.Visual:AddLeftGroupbox('Visual Features')
+VisualLeftGroupBox:AddToggle('Wallhack', {
+	Text = 'Wallhack',
+	Tooltip = 'See through walls',
+	Default = false,
+	Callback = function(Value)
+		print('[Visual] Wallhack:', Value)
+	end
+})
+
+VisualLeftGroupBox:AddToggle('Chams', {
+	Text = 'Chams',
+	Tooltip = 'Highlight players',
+	Default = false,
+	Callback = function(Value)
+		print('[Visual] Chams:', Value)
+	end
+})
+
+-- Misc Tab
+local MiscLeftGroupBox = Tabs.Misc:AddLeftGroupbox('Misc Features')
+MiscLeftGroupBox:AddToggle('Speed', {
+	Text = 'Speed Hack',
+	Tooltip = 'Increases movement speed',
+	Default = false,
+	Callback = function(Value)
+		print('[Misc] Speed:', Value)
+	end
+})
+
+MiscLeftGroupBox:AddToggle('Fly', {
+	Text = 'Fly',
+	Tooltip = 'Allows flying',
+	Default = false,
+	Callback = function(Value)
+		print('[Misc] Fly:', Value)
+	end
+})
+
+-- Other Tab (UI Settings)
+local MenuGroup = Tabs.Other:AddLeftGroupbox('Menu')
+
+MenuGroup:AddToggle("KeybindMenuOpen", { 
+	Default = Library.KeybindFrame.Visible, 
+	Text = "Open Keybind Menu", 
+	Callback = function(value) 
+		Library.KeybindFrame.Visible = value 
+	end
+})
+
+MenuGroup:AddToggle("ShowCustomCursor", {
+	Text = "Custom Cursor", 
+	Default = true, 
+	Callback = function(Value) 
+		Library.ShowCustomCursor = Value 
+	end
+})
+
+MenuGroup:AddDivider()
+
+MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { 
+	Default = "RightShift", 
+	NoUI = true, 
+	Text = "Menu keybind" 
+})
+
+MenuGroup:AddButton("Unload", function() 
+	Library:Unload() 
 end)
-Toggles.MyToggle:SetValue(false)
 
-local MyButton = LeftGroupBox:AddButton({
-	Text = 'Button',
-	Func = function()
-		print('You clicked a button!')
-		Library:Notify("This is a notification")
-	end,
-	DoubleClick = false,
-	Tooltip = 'This is the main button',
-	DisabledTooltip = 'I am disabled!',
-	Disabled = false,
-	Visible = true
-})
+Library.ToggleKeybind = Options.MenuKeybind
 
-local MyButton2 = MyButton:AddButton({
-	Text = 'Sub button',
-	Func = function()
-		print('You clicked a sub button!')
-		Library:Notify("This is a notification with sound", nil, 4590657391)
-	end,
-	DoubleClick = true,
-	Tooltip = 'This is the sub button (double click me!)'
-})
+-- Library functions
+Library:SetWatermarkVisibility(true)
 
-local MyDisabledButton = LeftGroupBox:AddButton({
-	Text = 'Disabled Button',
-	Func = function()
-		print('You somehow clicked a disabled button!')
-	end,
-	DoubleClick = false,
-	Tooltip = 'This is a disabled button',
-	DisabledTooltip = 'I am disabled!',
-	Disabled = true
-})
+-- Watermark with FPS and ping
+local FrameTimer = tick()
+local FrameCounter = 0;
+local FPS = 60;
 
-LeftGroupBox:AddLabel('This is a label')
-LeftGroupBox:AddLabel('This is a label\n\nwhich wraps its text!', true)
+local WatermarkConnection = game:GetService('RunService').RenderStepped:Connect(function()
+	FrameCounter += 1;
+
+	if (tick() - FrameTimer) >= 1 then
+		FPS = FrameCounter;
+		FrameTimer = tick();
+		FrameCounter = 0;
+	end;
+
+	Library:SetWatermark(('Trident Script | %s fps | %s ms'):format(
+		math.floor(FPS),
+		math.floor(game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue())
+	));
+end);
+
+Library:OnUnload(function()
+	WatermarkConnection:Disconnect()
+	print('Unloaded!')
+	Library.Unloaded = true
+end)
+
+-- Setup managers
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+
+ThemeManager:SetFolder('TridentScript')
+SaveManager:SetFolder('TridentScript/configs')
+
+-- Build config and theme sections
+SaveManager:BuildConfigSection(Tabs.Other)
+ThemeManager:ApplyToTab(Tabs.Other)
+
+SaveManager:LoadAutoloadConfig()

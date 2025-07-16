@@ -31,37 +31,25 @@ local Tabs = {
     Other = Window:AddTab('Other'),
 }
 
--- Регистрация ESP на вкладке Visual
+-- Загрузка и инициализация логики ESP
+local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/esp"))()
+if not ESP then
+    Library:Notify("Failed to load ESP module!", "Error", 5)
+    return
+end
+
+-- Регистрация ESP на вкладке Visual с dropdown
 local VisualGroup = Tabs.Visual:AddLeftGroupbox('ESP Settings')
 
--- Переключатели для режимов ESP
-VisualGroup:AddToggle('ESPBox', {
-    Text = 'Box ESP',
-    Default = false,
-    Tooltip = 'Enable Box ESP for players',
+VisualGroup:AddDropdown('ESPMode', {
+    Values = {'Off', 'Box', 'Corner', '3DBox'},
+    Default = 1,
+    Text = 'ESP Mode',
+    Tooltip = 'Select ESP mode',
     Callback = function(Value)
-        local ESP = require(game:GetService("ReplicatedStorage"):WaitForChild("ESP"))
-        ESP:ToggleBoxESP(Value)
-    end
-})
-
-VisualGroup:AddToggle('ESPCorner', {
-    Text = 'Corner ESP',
-    Default = false,
-    Tooltip = 'Enable Corner ESP for players',
-    Callback = function(Value)
-        local ESP = require(game:GetService("ReplicatedStorage"):WaitForChild("ESP"))
-        ESP:ToggleCornerESP(Value)
-    end
-})
-
-VisualGroup:AddToggle('ESP3DBox', {
-    Text = '3D Box ESP',
-    Default = false,
-    Tooltip = 'Enable 3D Box ESP for players',
-    Callback = function(Value)
-        local ESP = require(game:GetService("ReplicatedStorage"):WaitForChild("ESP"))
-        ESP:Toggle3DBoxESP(Value)
+        ESP:ToggleBoxESP(Value == 'Box')
+        ESP:ToggleCornerESP(Value == 'Corner')
+        ESP:Toggle3DBoxESP(Value == '3DBox')
     end
 })
 
@@ -114,7 +102,3 @@ ThemeManager:ApplyToTab(Tabs.Other)
 
 -- Автозагрузка конфигурации
 SaveManager:LoadAutoloadConfig()
-
--- Загрузка логики ESP
-local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/esp"))()
-game:GetService("ReplicatedStorage"):WaitForChild("ESP").Value = ESP

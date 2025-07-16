@@ -57,14 +57,14 @@ local function UpdateCorners(corners, rootPart)
     if not rootPart then return end
     local size = Vector3.new(4, 6, 4)
     local positions = {
-        Vector3.new(-size.X/2, -size.Y/2, -size.Z/2), -- Нижний левый задний
-        Vector3.new(size.X/2, -size.Y/2, -size.Z/2),  -- Нижний правый задний
-        Vector3.new(-size.X/2, size.Y/2, -size.Z/2),  -- Верхний левый задний
-        Vector3.new(size.X/2, size.Y/2, -size.Z/2),   -- Верхний правый задний
-        Vector3.new(-size.X/2, -size.Y/2, size.Z/2),  -- Нижний левый передний
-        Vector3.new(size.X/2, -size.Y/2, size.Z/2),   -- Нижний правый передний
-        Vector3.new(-size.X/2, size.Y/2, size.Z/2),   -- Верхний левый передний
-        Vector3.new(size.X/2, size.Y/2, size.Z/2)     -- Верхний правый передний
+        Vector3.new(-size.X/2, -size.Y/2, -size.Z/2),
+        Vector3.new(size.X/2, -size.Y/2, -size.Z/2),
+        Vector3.new(-size.X/2, size.Y/2, -size.Z/2),
+        Vector3.new(size.X/2, size.Y/2, -size.Z/2),
+        Vector3.new(-size.X/2, -size.Y/2, size.Z/2),
+        Vector3.new(size.X/2, -size.Y/2, size.Z/2),
+        Vector3.new(-size.X/2, size.Y/2, size.Z/2),
+        Vector3.new(size.X/2, size.Y/2, size.Z/2)
     }
     for i, corner in ipairs(corners) do
         corner.CFrame = rootPart.CFrame * CFrame.new(positions[i])
@@ -103,16 +103,9 @@ function ESP:Init()
             local character = player.Character
             local rootPart = character and character:FindFirstChild("HumanoidRootPart")
             if rootPart then
-                if objects.Box then
-                    objects.Box.Adornee = rootPart
-                    objects.Box.Size = Vector3.new(4, 6, 4)
-                end
-                if objects.Corners then
-                    UpdateCorners(objects.Corners, rootPart)
-                end
-                if objects.Box3D then
-                    objects.Box3D.Adornee = rootPart
-                end
+                if objects.Box then objects.Box.Adornee = rootPart end
+                if objects.Corners then UpdateCorners(objects.Corners, rootPart) end
+                if objects.Box3D then objects.Box3D.Adornee = rootPart end
             else
                 if objects.Box then objects.Box.Adornee = nil end
                 if objects.Corners then
@@ -132,7 +125,7 @@ function ESP:ToggleBoxESP(enabled)
     for player, objects in pairs(ESPObjects) do
         if enabled and not objects.Box and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             objects.Box = CreateBox(player)
-        elseif objects.Box then
+        elseif not enabled and objects.Box then
             objects.Box:Destroy()
             objects.Box = nil
         end
@@ -145,7 +138,7 @@ function ESP:ToggleCornerESP(enabled)
     for player, objects in pairs(ESPObjects) do
         if enabled and not objects.Corners and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             objects.Corners = CreateCorner(player)
-        elseif objects.Corners then
+        elseif not enabled and objects.Corners then
             for _, corner in ipairs(objects.Corners) do
                 corner:Destroy()
             end
@@ -160,7 +153,7 @@ function ESP:Toggle3DBoxESP(enabled)
     for player, objects in pairs(ESPObjects) do
         if enabled and not objects.Box3D and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             objects.Box3D = Create3DBox(player)
-        elseif objects.Box3D then
+        elseif not enabled and objects.Box3D then
             objects.Box3D:Destroy()
             objects.Box3D = nil
         end

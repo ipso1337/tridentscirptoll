@@ -47,6 +47,9 @@ CombatGroupBox:AddToggle("AimbotToggle", {
 			if _G.DisableAimbot then 
 				_G.DisableAimbot() 
 			end
+			if _G.CleanupAimbot then
+				_G.CleanupAimbot()
+			end
 			Library:Notify({ Title = "Aimbot", Description = "Aimbot disabled", Time = 2 })
 		end
 	end,
@@ -109,13 +112,28 @@ CombatGroupBox:AddLabel("Aimbot Keybind"):AddKeyPicker("AimbotKeybind", {
 	Text = "Hold Key",
 	NoUI = false,
 	Callback = function(Value)
+		print("KeyPicker Callback - Value:", Value, "Type:", type(Value))
 		if _G.SetAimbotKeybind then 
 			_G.SetAimbotKeybind(Value) 
 		end
 	end,
 	ChangedCallback = function(New)
+		print("KeyPicker ChangedCallback - New:", New, "Type:", type(New))
 		if _G.SetAimbotKeybind then 
-			_G.SetAimbotKeybind(New) 
+			-- Handle the keybind change
+			if type(New) == "userdata" and tostring(New):find("KeyCode") then
+				_G.SetAimbotKeybind(New)
+			elseif type(New) == "string" then
+				_G.SetAimbotKeybind(New)
+			else
+				-- Try to extract the key name
+				local keyName = tostring(New):match("KeyCode%.(%w+)")
+				if keyName then
+					_G.SetAimbotKeybind(keyName)
+				else
+					_G.SetAimbotKeybind(New)
+				end
+			end
 		end
 	end,
 })
@@ -302,7 +320,8 @@ MenuGroup:AddButton({
 			"CleanupCornerESP", 
 			"CleanupSkeletonESP",
 			"CleanupWatermark",
-			"CleanupVisualSpinbot"
+			"CleanupVisualSpinbot",
+			"CleanupAimbot"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -324,7 +343,8 @@ Library:OnUnload(function()
 		"CleanupCornerESP", 
 		"CleanupSkeletonESP",
 		"CleanupWatermark",
-		"CleanupVisualSpinbot"
+		"CleanupVisualSpinbot",
+		"CleanupAimbot"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

@@ -1,1 +1,93 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
 
+local LocalPlayer = Players.LocalPlayer
+local AimbotEnabled = false
+local Smoothness = 50
+local FOV = 30
+local Shake = 5
+local HitPart = "Head"
+local Keybind = Enum.KeyCode.C
+
+-- Visible Check
+local function isVisible(part)
+	local origin = Camera.CFrame.Position
+	local direction = (part.Position - origin).Unit * 1000
+	local result = workspace:Raycast(origin, direction, RaycastParams.new())
+	return result and result.Instance and part:IsDescendantOf(result.Instance:FindFirstAncestorOfClass("Model"))
+end
+
+-- Get Closest Target
+local function getClosest()
+	local closest = nil
+	local shortest = math.huge
+
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild(HitPart) then
+			local part = plr.Character[HitPart]
+			local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+			if onScreen and isVisible(part) then
+				local dist = (Vector2.new(screenPos.X, screenPos.Y) - UserInputService:GetMouseLocation()).Magnitude
+				if dist < shortest and dist <= FOV * 10 then
+					shortest = dist
+					closest = part
+				end
+			end
+		end
+	end
+
+	return closest
+end
+
+-- FOV Circle
+local DrawingFOV = Drawing.new("Circle")
+DrawingFOV.Visible = true
+DrawingFOV.Thickness = 1
+DrawingFOV.NumSides = 100
+DrawingFOV.Radius = FOV * 4
+DrawingFOV.Transparency = 1
+DrawingFOV.Color = Color3.fromRGB(255, 255, 255)
+DrawingFOV.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+RunService.RenderStepped:Connect(function()
+	DrawingFOV.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+	DrawingFOV.Radius = FOV * 4
+
+	if not AimbotEnabled or not UserInputService:IsKeyDown(Keybind) then
+		DrawingFOV.Color = Color3.fromRGB(255, 255, 255)
+		return
+	end
+
+	local target = getClosest()
+	if not target then
+		DrawingFOV.Color = Color3.fromRGB(255, 255, 255)
+		return
+	end
+
+	-- Aiming
+	local targetCF = CFrame.new(Camera.CFrame.Position, target.Position)
+	Camera.CFrame = Camera.CFrame:Lerp(targetCF, Smoothness / 100)
+
+	-- Shake
+	if Shake > 0 then
+		local offset = Vector3.new(
+			math.random(-Shake, Shake) / 200,
+			math.random(-Shake, Shake) / 200,
+			math.random(-Shake, Shake) / 200
+		)
+		Camera.CFrame = Camera.CFrame * CFrame.new(offset)
+	end
+
+	DrawingFOV.Color = Color3.fromRGB(255, 0, 0)
+end)
+
+-- API
+_G.EnableAimbot = function() AimbotEnabled = true end
+_G.DisableAimbot = function() AimbotEnabled = false end
+_G.SetAimbotSmooth = function(v) Smoothness = v end
+_G.SetAimbotFOV = function(v) FOV = v end
+_G.SetAimbotShake = function(v) Shake = v end
+_G.SetAimbotPart = function(v) HitPart = v end
+_G.SetAimbotKeybind = function(v) Keybind = Enum.KeyCode[v] or Enum.KeyCode.C end

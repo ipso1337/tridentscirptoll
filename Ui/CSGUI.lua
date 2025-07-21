@@ -1,6 +1,5 @@
 -- Custom Roblox Script GUI
 -- Modified from Linoria Library example
-
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
@@ -29,7 +28,6 @@ local Tabs = {
 
 -- Combat Tab
 local CombatGroupBox = Tabs.Combat:AddLeftGroupbox("Combat Features", "sword")
-
 CombatGroupBox:AddLabel("Combat features will be added here")
 
 -- Visual Tab
@@ -93,17 +91,15 @@ MenuGroup:AddDropdown("DPIDropdown", {
 })
 
 MenuGroup:AddDivider()
-MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { 
-	Default = "RightShift", 
-	NoUI = true, 
-	Text = "Menu keybind" 
-})
+MenuGroup:AddLabel("Menu bind")
+	:AddKeyPicker("MenuKeybind", { Default = "RightShift", NoUI = true, Text = "Menu keybind" })
 
 MenuGroup:AddButton("Unload", function()
 	Library:Unload()
 end)
 
-Library.ToggleKeybind = Options.MenuKeybind
+-- ВАЖНО: Эта строка связывает кейбинд с библиотекой
+Library.ToggleKeybind = Options.MenuKeybind -- Allows you to have a custom keybind for the menu
 
 -- Library cleanup
 Library:OnUnload(function()
@@ -113,12 +109,28 @@ end)
 -- Setup managers
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
+
+-- Ignore keys that are used by ThemeManager.
+-- (we dont want configs to save themes, do we?)
 SaveManager:IgnoreThemeSettings()
+
+-- Adds our MenuKeybind to the ignore list
+-- (do you want each config to have a different menu key? probably not.)
 SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
 
+-- use case for doing it this way:
+-- a script hub could have themes in a global folder
+-- and game configs in a separate folder per game
 ThemeManager:SetFolder("CustomScript")
 SaveManager:SetFolder("CustomScript/settings")
 
+-- Builds our config menu on the right side of our tab
 SaveManager:BuildConfigSection(Tabs["UI Settings"])
+
+-- Builds our theme menu (with plenty of built in themes) on the left side
+-- NOTE: you can also call ThemeManager:ApplyToGroupbox to add it to a specific groupbox
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
+
+-- You can use the SaveManager:LoadAutoloadConfig() to load a config
+-- which has been marked to be one that auto loads!
 SaveManager:LoadAutoloadConfig()

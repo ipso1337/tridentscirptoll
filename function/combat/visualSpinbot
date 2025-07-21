@@ -1,1 +1,110 @@
+-- Visual Spinbot Script
+-- This creates a visual spinning effect without actually moving the character
 
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+
+local lplr = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local connection = nil
+local rotationAngle = 0
+local rotSpeed = 5 -- rotation speed
+
+-- Global variables for control
+_G.VisualSpinbotEnabled = false
+
+-- Function to enable visual spinbot
+function _G.EnableVisualSpinbot()
+    _G.VisualSpinbotEnabled = true
+    
+    if connection then
+        connection:Disconnect()
+    end
+    
+    connection = RunService.Heartbeat:Connect(function()
+        if _G.VisualSpinbotEnabled and lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = lplr.Character.HumanoidRootPart
+            
+            -- Increment rotation angle
+            rotationAngle = rotationAngle + math.rad(rotSpeed)
+            
+            -- Create visual spinning effect by rotating the camera around the character
+            local originalCFrame = rootPart.CFrame
+            local offset = Vector3.new(0, 2, 8) -- Camera offset from character
+            
+            -- Apply rotation to the offset
+            local rotatedOffset = CFrame.Angles(0, rotationAngle, 0) * offset
+            
+            -- Set camera position and look at character
+            camera.CFrame = CFrame.new(originalCFrame.Position + rotatedOffset, originalCFrame.Position + Vector3.new(0, 2, 0))
+            
+            -- Alternative method: Rotate character's visual appearance only
+            -- This creates a spinning visual effect without affecting hitbox
+            if rootPart:FindFirstChild("SpinbotWeld") then
+                rootPart.SpinbotWeld.C0 = CFrame.Angles(0, rotationAngle, 0)
+            else
+                -- Create visual spinning weld
+                local weld = Instance.new("WeldConstraint")
+                weld.Name = "SpinbotWeld"
+                weld.Part0 = rootPart
+                
+                -- Create invisible part for visual rotation
+                local visualPart = Instance.new("Part")
+                visualPart.Name = "VisualSpinPart"
+                visualPart.Transparency = 1
+                visualPart.CanCollide = false
+                visualPart.Anchored = false
+                visualPart.Size = Vector3.new(0.1, 0.1, 0.1)
+                visualPart.CFrame = rootPart.CFrame
+                visualPart.Parent = rootPart
+                
+                weld.Part1 = visualPart
+                weld.Parent = rootPart
+            end
+        end
+    end)
+    
+    print("Visual Spinbot enabled!")
+end
+
+-- Function to disable visual spinbot
+function _G.DisableVisualSpinbot()
+    _G.VisualSpinbotEnabled = false
+    
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+    
+    -- Reset camera to normal
+    if lplr.Character and lplr.Character:FindFirstChild("Humanoid") then
+        camera.CameraSubject = lplr.Character.Humanoid
+        camera.CameraType = Enum.CameraType.Custom
+    end
+    
+    -- Clean up visual spinning parts
+    if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
+        local rootPart = lplr.Character.HumanoidRootPart
+        if rootPart:FindFirstChild("SpinbotWeld") then
+            rootPart.SpinbotWeld:Destroy()
+        end
+        if rootPart:FindFirstChild("VisualSpinPart") then
+            rootPart.VisualSpinPart:Destroy()
+        end
+    end
+    
+    rotationAngle = 0
+    print("Visual Spinbot disabled!")
+end
+
+-- Cleanup function
+function _G.CleanupVisualSpinbot()
+    _G.DisableVisualSpinbot()
+    _G.VisualSpinbotEnabled = nil
+    _G.EnableVisualSpinbot = nil
+    _G.DisableVisualSpinbot = nil
+    _G.CleanupVisualSpinbot = nil
+end
+
+print("Visual Spinbot script loaded! Use _G.EnableVisualSpinbot() to start.")

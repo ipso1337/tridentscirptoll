@@ -1,5 +1,5 @@
 -- Arizona Live Watermark Script
--- Provides cursor-following text and single-row info panel
+-- Clean rewrite with cursor following and single-row info panel
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -10,329 +10,276 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Variables
-local watermarkEnabled = false
-local crosshairLabel = nil
-local infoPanelFrame = nil
-local pingLabel = nil
-local fpsLabel = nil
-local updateConnection = nil
-local cursorFollowConnection = nil
+-- State variables
+local isEnabled = false
+local gui = nil
+local crosshairText = nil
+local infoPanel = nil
+local connections = {}
 
--- FPS Counter
-local frameCount = 0
-local lastTime = tick()
-local currentFPS = 60
+-- Performance tracking
+local fpsCounter = 0
+local lastFpsUpdate = tick()
+local currentFps = 60
 
--- Function to get ping
-local function getPing()
-    local ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
-    return ping:match("(%d+)") or "0"
-end
-
--- Function to calculate FPS
-local function updateFPS()
-    frameCount = frameCount + 1
-    local currentTime = tick()
-    
-    if currentTime - lastTime >= 1 then
-        currentFPS = frameCount
-        frameCount = 0
-        lastTime = currentTime
+-- Update FPS counter
+local function calculateFps()
+    fpsCounter = fpsCounter + 1
+    local now = tick()
+    if now - lastFpsUpdate >= 1 then
+        currentFps = fpsCounter
+        fpsCounter = 0
+        lastFpsUpdate = now
     end
 end
 
--- Function to update crosshair text position
+-- Get current ping
+local function getPing()
+    local pingString = Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
+    return tonumber(pingString:match("(%d+)")) or 0
+end
+
+-- Get color based on value ranges
+local function getPerformanceColor(value, isping)
+    if isping then
+        if value <= 50 then return Color3.new(0, 1, 0) end -- Green
+        if value <= 100 then return Color3.new(1, 1, 0) end -- Yellow
+        return Color3.new(1, 0, 0) -- Red
+    else -- FPS
+        if value >= 60 then return Color3.new(0, 1, 0) end -- Green
+        if value >= 30 then return Color3.new(1, 1, 0) end -- Yellow
+        return Color3.new(1, 0, 0) -- Red
+    end
+end
+
+-- Update crosshair text position based on cursor state
 local function updateCrosshairPosition()
-    if not crosshairLabel or not watermarkEnabled then return end
+    if not crosshairText then return end
+    
+    local mousePosition = UserInputService:GetMouseLocation()
+    local screenSize = workspace.CurrentCamera.ViewportSize
     
     if UserInputService.MouseBehavior == Enum.MouseBehavior.Default then
-        -- Mouse is unlocked, follow cursor
-        local mouseLocation = UserInputService:GetMouseLocation()
-        local screenSize = workspace.CurrentCamera.ViewportSize
-        
-        -- Convert mouse position to UDim2
-        local xScale = mouseLocation.X / screenSize.X
-        local yScale = mouseLocation.Y / screenSize.Y
-        
-        -- Position text below cursor with offset
-        crosshairLabel.Position = UDim2.new(xScale, -100, yScale, 25)
+        -- Cursor is unlocked - follow mouse
+        crosshairText.Position = UDim2.new(
+            mousePosition.X / screenSize.X, -100,
+            mousePosition.Y / screenSize.Y, 25
+        )
     else
-        -- Mouse is locked, center position (below crosshair)
-        crosshairLabel.Position = UDim2.new(0.5, -100, 0.5, 20)
+        -- Cursor is locked - center position
+        crosshairText.Position = UDim2.new(0.5, -100, 0.5, 20)
     end
 end
 
--- Function to create crosshair text
+-- Create the main GUI container
+local function createGui()
+    gui = Instance.new("ScreenGui")
+    gui.Name = "ArizonaWatermark"
+    gui.Parent = playerGui
+    gui.ResetOnSpawn = false
+    gui.DisplayOrder = 1000
+end
+
+-- Create crosshair following text
 local function createCrosshairText()
-    if crosshairLabel then return end
+    crosshairText = Instance.new("TextLabel")
+    crosshairText.Name = "CrosshairText"
+    crosshairText.Parent = gui
+    crosshairText.Size = UDim2.new(0, 200, 0, 30)
+    crosshairText.Position = UDim2.new(0.5, -100, 0.5, 20)
+    crosshairText.BackgroundTransparency = 1
+    crosshairText.Text = "Arizona Live"
+    crosshairText.TextColor3 = Color3.new(1, 1, 1)
+    crosshairText.TextSize = 18
+    crosshairText.TextStrokeTransparency = 0
+    crosshairText.TextStrokeColor3 = Color3.new(0, 0, 0)
+    crosshairText.Font = Enum.Font.GothamBold
+    crosshairText.TextXAlignment = Enum.TextXAlignment.Center
+    crosshairText.TextYAlignment = Enum.TextYAlignment.Center
     
-    -- Create ScreenGui for crosshair
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "ArizonaWatermark"
-    screenGui.Parent = playerGui
-    screenGui.ResetOnSpawn = false
-    screenGui.DisplayOrder = 999
+    -- Add animated glow effect
+    local glow = crosshairText:Clone()
+    glow.Name = "Glow"
+    glow.Parent = crosshairText
+    glow.Size = UDim2.new(1, 0, 1, 0)
+    glow.Position = UDim2.new(0, 0, 0, 0)
+    glow.TextColor3 = Color3.fromRGB(0, 150, 255)
+    glow.TextStrokeColor3 = Color3.fromRGB(0, 150, 255)
+    glow.TextStrokeTransparency = 0.8
+    glow.ZIndex = crosshairText.ZIndex - 1
     
-    -- Create crosshair label
-    crosshairLabel = Instance.new("TextLabel")
-    crosshairLabel.Name = "CrosshairText"
-    crosshairLabel.Parent = screenGui
-    crosshairLabel.BackgroundTransparency = 1
-    crosshairLabel.Size = UDim2.new(0, 200, 0, 30)
-    crosshairLabel.Position = UDim2.new(0.5, -100, 0.5, 20) -- Default center position
-    crosshairLabel.Text = "Arizona Live"
-    crosshairLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    crosshairLabel.TextScaled = false
-    crosshairLabel.TextSize = 18
-    crosshairLabel.TextStrokeTransparency = 0
-    crosshairLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    crosshairLabel.Font = Enum.Font.GothamBold
-    crosshairLabel.TextXAlignment = Enum.TextXAlignment.Center
-    crosshairLabel.TextYAlignment = Enum.TextYAlignment.Center
-    
-    -- Add glow effect
-    local textGlow = Instance.new("TextLabel")
-    textGlow.Name = "Glow"
-    textGlow.Parent = crosshairLabel
-    textGlow.BackgroundTransparency = 1
-    textGlow.Size = UDim2.new(1, 0, 1, 0)
-    textGlow.Position = UDim2.new(0, 0, 0, 0)
-    textGlow.Text = crosshairLabel.Text
-    textGlow.TextColor3 = Color3.fromRGB(0, 150, 255)
-    textGlow.TextScaled = false
-    textGlow.TextSize = 18
-    textGlow.TextStrokeTransparency = 0.8
-    textGlow.TextStrokeColor3 = Color3.fromRGB(0, 150, 255)
-    textGlow.Font = Enum.Font.GothamBold
-    textGlow.TextXAlignment = Enum.TextXAlignment.Center
-    textGlow.TextYAlignment = Enum.TextYAlignment.Center
-    textGlow.ZIndex = crosshairLabel.ZIndex - 1
-    
-    -- Animate glow effect
-    local glowTween = TweenService:Create(textGlow, 
+    -- Animate the glow
+    TweenService:Create(glow, 
         TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
         {TextStrokeTransparency = 0.3}
-    )
-    glowTween:Play()
-    
-    -- Start cursor following
-    cursorFollowConnection = RunService.Heartbeat:Connect(updateCrosshairPosition)
+    ):Play()
 end
 
--- Function to create info panel (single row)
+-- Create single-row info panel
 local function createInfoPanel()
-    if infoPanelFrame then return end
+    -- Main frame
+    infoPanel = Instance.new("Frame")
+    infoPanel.Name = "InfoPanel"
+    infoPanel.Parent = gui
+    infoPanel.Size = UDim2.new(0, 280, 0, 35)
+    infoPanel.Position = UDim2.new(0.5, -140, 0, 20)
+    infoPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    infoPanel.BackgroundTransparency = 0.1
+    infoPanel.BorderSizePixel = 0
     
-    -- Create ScreenGui for info panel if doesn't exist
-    local screenGui = playerGui:FindFirstChild("ArizonaWatermark")
-    if not screenGui then
-        screenGui = Instance.new("ScreenGui")
-        screenGui.Name = "ArizonaWatermark"
-        screenGui.Parent = playerGui
-        screenGui.ResetOnSpawn = false
-        screenGui.DisplayOrder = 999
-    end
-    
-    -- Create main frame (single row)
-    infoPanelFrame = Instance.new("Frame")
-    infoPanelFrame.Name = "InfoPanel"
-    infoPanelFrame.Parent = screenGui
-    infoPanelFrame.Size = UDim2.new(0, 300, 0, 40) -- Wider but shorter for single row
-    infoPanelFrame.Position = UDim2.new(0.5, -150, 0, 20) -- Top center
-    infoPanelFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    infoPanelFrame.BorderSizePixel = 0
-    infoPanelFrame.BackgroundTransparency = 0.2
-    
-    -- Add corner radius
+    -- Styling
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = infoPanelFrame
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = infoPanel
     
-    -- Add border glow
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(0, 150, 255)
-    stroke.Thickness = 2
-    stroke.Transparency = 0.5
-    stroke.Parent = infoPanelFrame
+    stroke.Thickness = 1
+    stroke.Transparency = 0.4
+    stroke.Parent = infoPanel
     
-    -- Add gradient
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 35)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 15))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 30)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 10))
     }
-    gradient.Rotation = 45
-    gradient.Parent = infoPanelFrame
+    gradient.Rotation = 90
+    gradient.Parent = infoPanel
     
-    -- Title label (left side)
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Name = "Title"
-    titleLabel.Parent = infoPanelFrame
-    titleLabel.Size = UDim2.new(0, 120, 1, 0) -- Fixed width for title
-    titleLabel.Position = UDim2.new(0, 10, 0, 0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "Arizona Live"
-    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleLabel.TextScaled = false
-    titleLabel.TextSize = 16
-    titleLabel.TextStrokeTransparency = 0
-    titleLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.TextYAlignment = Enum.TextYAlignment.Center
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Parent = infoPanel
+    title.Size = UDim2.new(0, 100, 1, 0)
+    title.Position = UDim2.new(0, 10, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "Arizona Live"
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.TextSize = 14
+    title.TextStrokeTransparency = 0
+    title.TextStrokeColor3 = Color3.new(0, 0, 0)
+    title.Font = Enum.Font.GothamBold
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.TextYAlignment = Enum.TextYAlignment.Center
     
-    -- Vertical divider
-    local divider = Instance.new("Frame")
-    divider.Name = "Divider"
-    divider.Parent = infoPanelFrame
-    divider.Size = UDim2.new(0, 2, 0, 20)
-    divider.Position = UDim2.new(0, 140, 0.5, -10)
-    divider.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-    divider.BorderSizePixel = 0
-    divider.BackgroundTransparency = 0.3
-    
-    -- Ping label (center)
-    pingLabel = Instance.new("TextLabel")
+    -- Ping display
+    local pingLabel = Instance.new("TextLabel")
     pingLabel.Name = "Ping"
-    pingLabel.Parent = infoPanelFrame
+    pingLabel.Parent = infoPanel
     pingLabel.Size = UDim2.new(0, 70, 1, 0)
-    pingLabel.Position = UDim2.new(0, 150, 0, 0)
+    pingLabel.Position = UDim2.new(0, 120, 0, 0)
     pingLabel.BackgroundTransparency = 1
     pingLabel.Text = "0ms"
-    pingLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-    pingLabel.TextScaled = false
-    pingLabel.TextSize = 14
+    pingLabel.TextColor3 = Color3.new(0, 1, 0)
+    pingLabel.TextSize = 12
     pingLabel.TextStrokeTransparency = 0
-    pingLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    pingLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
     pingLabel.Font = Enum.Font.Gotham
     pingLabel.TextXAlignment = Enum.TextXAlignment.Center
     pingLabel.TextYAlignment = Enum.TextYAlignment.Center
     
-    -- Vertical divider 2
-    local divider2 = Instance.new("Frame")
-    divider2.Name = "Divider2"
-    divider2.Parent = infoPanelFrame
-    divider2.Size = UDim2.new(0, 2, 0, 20)
-    divider2.Position = UDim2.new(0, 230, 0.5, -10)
-    divider2.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-    divider2.BorderSizePixel = 0
-    divider2.BackgroundTransparency = 0.3
-    
-    -- FPS label (right side)
-    fpsLabel = Instance.new("TextLabel")
+    -- FPS display
+    local fpsLabel = Instance.new("TextLabel")
     fpsLabel.Name = "FPS"
-    fpsLabel.Parent = infoPanelFrame
-    fpsLabel.Size = UDim2.new(0, 60, 1, 0)
-    fpsLabel.Position = UDim2.new(0, 240, 0, 0)
+    fpsLabel.Parent = infoPanel
+    fpsLabel.Size = UDim2.new(0, 70, 1, 0)
+    fpsLabel.Position = UDim2.new(0, 200, 0, 0)
     fpsLabel.BackgroundTransparency = 1
-    fpsLabel.Text = "60 FPS"
-    fpsLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-    fpsLabel.TextScaled = false
-    fpsLabel.TextSize = 14
+    fpsLabel.Text = "60fps"
+    fpsLabel.TextColor3 = Color3.new(0, 1, 0)
+    fpsLabel.TextSize = 12
     fpsLabel.TextStrokeTransparency = 0
-    fpsLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    fpsLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
     fpsLabel.Font = Enum.Font.Gotham
     fpsLabel.TextXAlignment = Enum.TextXAlignment.Center
     fpsLabel.TextYAlignment = Enum.TextYAlignment.Center
     
-    -- Animate panel entrance
-    infoPanelFrame.Position = UDim2.new(0.5, -150, 0, -50)
-    local enterTween = TweenService:Create(infoPanelFrame,
-        TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-        {Position = UDim2.new(0.5, -150, 0, 20)}
-    )
-    enterTween:Play()
+    -- Animate entrance
+    infoPanel.Position = UDim2.new(0.5, -140, 0, -40)
+    TweenService:Create(infoPanel,
+        TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        {Position = UDim2.new(0.5, -140, 0, 20)}
+    ):Play()
 end
 
--- Function to update stats
-local function updateStats()
-    if not watermarkEnabled then return end
+-- Main update function
+local function updateWatermark()
+    if not isEnabled or not gui then return end
     
-    updateFPS()
+    calculateFps()
     
-    if pingLabel then
+    -- Update crosshair position
+    updateCrosshairPosition()
+    
+    -- Update info panel stats
+    if infoPanel then
         local ping = getPing()
-        pingLabel.Text = ping .. "ms"
+        local pingLabel = infoPanel:FindFirstChild("Ping")
+        local fpsLabel = infoPanel:FindFirstChild("FPS")
         
-        -- Color ping based on value
-        local pingNum = tonumber(ping) or 0
-        if pingNum <= 50 then
-            pingLabel.TextColor3 = Color3.fromRGB(0, 255, 0) -- Green
-        elseif pingNum <= 100 then
-            pingLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow
-        else
-            pingLabel.TextColor3 = Color3.fromRGB(255, 0, 0) -- Red
+        if pingLabel then
+            pingLabel.Text = ping .. "ms"
+            pingLabel.TextColor3 = getPerformanceColor(ping, true)
         end
-    end
-    
-    if fpsLabel then
-        fpsLabel.Text = currentFPS .. " FPS"
         
-        -- Color FPS based on value
-        if currentFPS >= 60 then
-            fpsLabel.TextColor3 = Color3.fromRGB(0, 255, 0) -- Green
-        elseif currentFPS >= 30 then
-            fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow
-        else
-            fpsLabel.TextColor3 = Color3.fromRGB(255, 0, 0) -- Red
+        if fpsLabel then
+            fpsLabel.Text = currentFps .. "fps"
+            fpsLabel.TextColor3 = getPerformanceColor(currentFps, false)
         end
     end
 end
 
--- Global functions for control
+-- Enable watermark
 _G.EnableWatermark = function()
-    if watermarkEnabled then return end
+    if isEnabled then return end
     
-    watermarkEnabled = true
+    isEnabled = true
+    createGui()
     createCrosshairText()
     createInfoPanel()
     
     -- Start update loop
-    updateConnection = RunService.Heartbeat:Connect(updateStats)
+    connections.update = RunService.Heartbeat:Connect(updateWatermark)
     
-    print("Arizona Live Watermark enabled")
+    print("Arizona Live Watermark: Enabled")
 end
 
+-- Disable watermark
 _G.DisableWatermark = function()
-    if not watermarkEnabled then return end
+    if not isEnabled then return end
     
-    watermarkEnabled = false
+    isEnabled = false
     
-    -- Disconnect update loops
-    if updateConnection then
-        updateConnection:Disconnect()
-        updateConnection = nil
+    -- Cleanup connections
+    for _, connection in pairs(connections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    connections = {}
+    
+    -- Remove GUI
+    if gui then
+        gui:Destroy()
+        gui = nil
     end
     
-    if cursorFollowConnection then
-        cursorFollowConnection:Disconnect()
-        cursorFollowConnection = nil
-    end
+    crosshairText = nil
+    infoPanel = nil
     
-    -- Remove GUI elements
-    local screenGui = playerGui:FindFirstChild("ArizonaWatermark")
-    if screenGui then
-        screenGui:Destroy()
-    end
-    
-    crosshairLabel = nil
-    infoPanelFrame = nil
-    pingLabel = nil
-    fpsLabel = nil
-    
-    print("Arizona Live Watermark disabled")
+    print("Arizona Live Watermark: Disabled")
 end
 
+-- Complete cleanup
 _G.CleanupWatermark = function()
     _G.DisableWatermark()
     
-    -- Clean up global functions
+    -- Remove global functions
     _G.EnableWatermark = nil
     _G.DisableWatermark = nil
     _G.CleanupWatermark = nil
     
-    print("Arizona Live Watermark cleaned up")
+    print("Arizona Live Watermark: Cleaned up")
 end
 
-print("Arizona Live Watermark script loaded")
+print("Arizona Live Watermark: Script loaded")

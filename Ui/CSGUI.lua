@@ -50,6 +50,9 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 		-- Handle different modes
 		if Value == "none" then
 			-- Disable any active ESP
+			if _G.DisableBoxESP then
+				_G.DisableBoxESP()
+			end
 			currentESP = nil
 			Library:Notify({
 				Title = "View Mode",
@@ -58,6 +61,10 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 			})
 			
 		elseif Value == "corner" then
+			-- Disable 3D ESP first
+			if _G.DisableBoxESP then
+				_G.DisableBoxESP()
+			end
 			-- Load corner ESP script
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Corner"))()
@@ -73,6 +80,10 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 			-- Load 3D ESP script
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/3D"))()
+				-- Enable the ESP after loading
+				if _G.EnableBoxESP then
+					_G.EnableBoxESP()
+				end
 				currentESP = "3d"
 			end)
 			Library:Notify({
@@ -153,6 +164,10 @@ MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
 })
 
 MenuGroup:AddButton("Unload", function()
+	-- Clean up any active ESP before unloading
+	if _G.CleanupBoxESP then
+		_G.CleanupBoxESP()
+	end
 	Library:Unload()
 end)
 
@@ -160,6 +175,10 @@ Library.ToggleKeybind = Options.MenuKeybind
 
 -- Library cleanup
 Library:OnUnload(function()
+	-- Clean up any active ESP
+	if _G.CleanupBoxESP then
+		_G.CleanupBoxESP()
+	end
 	print("Script unloaded!")
 end)
 

@@ -4,13 +4,10 @@ local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
-
 local Options = Library.Options
 local Toggles = Library.Toggles
-
 Library.ForceCheckbox = false
 Library.ShowToggleFrameInKeybinds = true
-
 local Window = Library:CreateWindow({
 	Title = "Custom Script",
 	Footer = "version: 1.0",
@@ -18,20 +15,54 @@ local Window = Library:CreateWindow({
 	NotifySide = "Right",
 	ShowCustomCursor = true,
 })
-
 -- Create tabs
 local Tabs = {
 	Combat = Window:AddTab("Combat", "sword"),
 	Visual = Window:AddTab("Visual", "eye"),
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
-
 -- Combat Tab
 local CombatGroupBox = Tabs.Combat:AddLeftGroupbox("Combat Features", "sword")
 CombatGroupBox:AddLabel("Combat features will be added here")
-
 -- Visual Tab
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
+
+-- Add the dropdown with none, corner, 3d options
+VisualGroupBox:AddDropdown("ViewModeDropdown", {
+	Values = { "none", "corner", "3d" },
+	Default = 1, -- defaults to "none"
+	Multi = false,
+	
+	Text = "View Mode",
+	Tooltip = "Select the view mode for visual features",
+	
+	Callback = function(Value)
+		print("[cb] View Mode changed to:", Value)
+		-- Add your logic here based on the selected value
+		if Value == "none" then
+			-- Handle none mode
+			Library:Notify({
+				Title = "View Mode",
+				Description = "Set to None mode",
+				Time = 2,
+			})
+		elseif Value == "corner" then
+			-- Handle corner mode
+			Library:Notify({
+				Title = "View Mode",
+				Description = "Set to Corner mode",
+				Time = 2,
+			})
+		elseif Value == "3d" then
+			-- Handle 3d mode
+			Library:Notify({
+				Title = "View Mode",
+				Description = "Set to 3D mode",
+				Time = 2,
+			})
+		end
+	end,
+})
 
 -- Show Health Bar Button
 VisualGroupBox:AddButton({
@@ -51,9 +82,11 @@ VisualGroupBox:AddButton({
 	end,
 })
 
+-- You can access the dropdown value later with:
+-- Options.ViewModeDropdown.Value
+
 -- UI Settings
 local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
-
 MenuGroup:AddToggle("KeybindMenuOpen", {
 	Default = Library.KeybindFrame.Visible,
 	Text = "Open Keybind Menu",
@@ -61,7 +94,6 @@ MenuGroup:AddToggle("KeybindMenuOpen", {
 		Library.KeybindFrame.Visible = value
 	end,
 })
-
 MenuGroup:AddToggle("ShowCustomCursor", {
 	Text = "Custom Cursor",
 	Default = true,
@@ -69,7 +101,6 @@ MenuGroup:AddToggle("ShowCustomCursor", {
 		Library.ShowCustomCursor = Value
 	end,
 })
-
 MenuGroup:AddDropdown("NotificationSide", {
 	Values = { "Left", "Right" },
 	Default = "Right",
@@ -78,7 +109,6 @@ MenuGroup:AddDropdown("NotificationSide", {
 		Library:SetNotifySide(Value)
 	end,
 })
-
 MenuGroup:AddDropdown("DPIDropdown", {
 	Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
 	Default = "100%",
@@ -89,48 +119,27 @@ MenuGroup:AddDropdown("DPIDropdown", {
 		Library:SetDPIScale(DPI)
 	end,
 })
-
 MenuGroup:AddDivider()
-MenuGroup:AddLabel("Menu bind")
-	:AddKeyPicker("MenuKeybind", { Default = "RightShift", NoUI = true, Text = "Menu keybind" })
-
+MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { 
+	Default = "RightShift", 
+	NoUI = true, 
+	Text = "Menu keybind" 
+})
 MenuGroup:AddButton("Unload", function()
 	Library:Unload()
 end)
-
--- ВАЖНО: Эта строка связывает кейбинд с библиотекой
-Library.ToggleKeybind = Options.MenuKeybind -- Allows you to have a custom keybind for the menu
-
+Library.ToggleKeybind = Options.MenuKeybind
 -- Library cleanup
 Library:OnUnload(function()
 	print("Script unloaded!")
 end)
-
 -- Setup managers
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
-
--- Ignore keys that are used by ThemeManager.
--- (we dont want configs to save themes, do we?)
 SaveManager:IgnoreThemeSettings()
-
--- Adds our MenuKeybind to the ignore list
--- (do you want each config to have a different menu key? probably not.)
 SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
-
--- use case for doing it this way:
--- a script hub could have themes in a global folder
--- and game configs in a separate folder per game
 ThemeManager:SetFolder("CustomScript")
 SaveManager:SetFolder("CustomScript/settings")
-
--- Builds our config menu on the right side of our tab
 SaveManager:BuildConfigSection(Tabs["UI Settings"])
-
--- Builds our theme menu (with plenty of built in themes) on the left side
--- NOTE: you can also call ThemeManager:ApplyToGroupbox to add it to a specific groupbox
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
-
--- You can use the SaveManager:LoadAutoloadConfig() to load a config
--- which has been marked to be one that auto loads!
 SaveManager:LoadAutoloadConfig()

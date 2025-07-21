@@ -6,8 +6,10 @@ local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))
 local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 local Options = Library.Options
 local Toggles = Library.Toggles
+
 Library.ForceCheckbox = false
 Library.ShowToggleFrameInKeybinds = true
+
 local Window = Library:CreateWindow({
 	Title = "Custom Script",
 	Footer = "version: 1.0",
@@ -15,17 +17,23 @@ local Window = Library:CreateWindow({
 	NotifySide = "Right",
 	ShowCustomCursor = true,
 })
+
 -- Create tabs
 local Tabs = {
 	Combat = Window:AddTab("Combat", "sword"),
 	Visual = Window:AddTab("Visual", "eye"),
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
+
 -- Combat Tab
 local CombatGroupBox = Tabs.Combat:AddLeftGroupbox("Combat Features", "sword")
 CombatGroupBox:AddLabel("Combat features will be added here")
+
 -- Visual Tab
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
+
+-- Variables to track loaded scripts
+local currentESP = nil
 
 -- Add the dropdown with none, corner, 3d options
 VisualGroupBox:AddDropdown("ViewModeDropdown", {
@@ -38,26 +46,38 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	
 	Callback = function(Value)
 		print("[cb] View Mode changed to:", Value)
-		-- Add your logic here based on the selected value
+		
+		-- Handle different modes
 		if Value == "none" then
-			-- Handle none mode
+			-- Disable any active ESP
+			currentESP = nil
 			Library:Notify({
 				Title = "View Mode",
-				Description = "Set to None mode",
+				Description = "ESP disabled - None mode active",
 				Time = 2,
 			})
+			
 		elseif Value == "corner" then
-			-- Handle corner mode
+			-- Load corner ESP script
+			pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Corner"))()
+				currentESP = "corner"
+			end)
 			Library:Notify({
 				Title = "View Mode",
-				Description = "Set to Corner mode",
+				Description = "Corner ESP loaded successfully!",
 				Time = 2,
 			})
+			
 		elseif Value == "3d" then
-			-- Handle 3d mode
+			-- Load 3D ESP script
+			pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/3D"))()
+				currentESP = "3d"
+			end)
 			Library:Notify({
 				Title = "View Mode",
-				Description = "Set to 3D mode",
+				Description = "3D ESP loaded successfully!",
 				Time = 2,
 			})
 		end
@@ -87,6 +107,7 @@ VisualGroupBox:AddButton({
 
 -- UI Settings
 local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
+
 MenuGroup:AddToggle("KeybindMenuOpen", {
 	Default = Library.KeybindFrame.Visible,
 	Text = "Open Keybind Menu",
@@ -94,6 +115,7 @@ MenuGroup:AddToggle("KeybindMenuOpen", {
 		Library.KeybindFrame.Visible = value
 	end,
 })
+
 MenuGroup:AddToggle("ShowCustomCursor", {
 	Text = "Custom Cursor",
 	Default = true,
@@ -101,6 +123,7 @@ MenuGroup:AddToggle("ShowCustomCursor", {
 		Library.ShowCustomCursor = Value
 	end,
 })
+
 MenuGroup:AddDropdown("NotificationSide", {
 	Values = { "Left", "Right" },
 	Default = "Right",
@@ -109,6 +132,7 @@ MenuGroup:AddDropdown("NotificationSide", {
 		Library:SetNotifySide(Value)
 	end,
 })
+
 MenuGroup:AddDropdown("DPIDropdown", {
 	Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
 	Default = "100%",
@@ -119,27 +143,37 @@ MenuGroup:AddDropdown("DPIDropdown", {
 		Library:SetDPIScale(DPI)
 	end,
 })
+
 MenuGroup:AddDivider()
+
 MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { 
 	Default = "RightShift", 
 	NoUI = true, 
 	Text = "Menu keybind" 
 })
+
 MenuGroup:AddButton("Unload", function()
 	Library:Unload()
 end)
+
 Library.ToggleKeybind = Options.MenuKeybind
+
 -- Library cleanup
 Library:OnUnload(function()
 	print("Script unloaded!")
 end)
+
 -- Setup managers
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
+
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
+
 ThemeManager:SetFolder("CustomScript")
 SaveManager:SetFolder("CustomScript/settings")
+
 SaveManager:BuildConfigSection(Tabs["UI Settings"])
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
+
 SaveManager:LoadAutoloadConfig()

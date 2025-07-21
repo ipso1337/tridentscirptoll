@@ -104,7 +104,7 @@ CombatGroupBox:AddLabel("Aimbot Keybind"):AddKeyPicker("AimbotKeybind", {
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
 VisualGroupBox:AddDropdown("ViewModeDropdown", {
-	Values = { "none", "corner", "3d", "skeleton" },
+	Values = { "none", "corner", "3d" },
 	Default = 1,
 	Multi = false,
 
@@ -115,11 +115,9 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 		if Value == "none" then
 			if _G.DisableBoxESP then _G.DisableBoxESP() end
 			if _G.DisableCornerESP then _G.DisableCornerESP() end
-			if _G.DisableSkeletonESP then _G.DisableSkeletonESP() end
 			Library:Notify({ Title = "View Mode", Description = "ESP disabled - None mode", Time = 2 })
 		elseif Value == "corner" then
 			if _G.DisableBoxESP then _G.DisableBoxESP() end
-			if _G.DisableSkeletonESP then _G.DisableSkeletonESP() end
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Corner"))()
 				if _G.EnableCornerESP then _G.EnableCornerESP() end
@@ -127,20 +125,30 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 			Library:Notify({ Title = "View Mode", Description = "Corner ESP loaded", Time = 2 })
 		elseif Value == "3d" then
 			if _G.DisableCornerESP then _G.DisableCornerESP() end
-			if _G.DisableSkeletonESP then _G.DisableSkeletonESP() end
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/3D"))()
 				if _G.EnableBoxESP then _G.EnableBoxESP() end
 			end)
 			Library:Notify({ Title = "View Mode", Description = "3D ESP loaded", Time = 2 })
-		elseif Value == "skeleton" then
-			if _G.DisableBoxESP then _G.DisableBoxESP() end
-			if _G.DisableCornerESP then _G.DisableCornerESP() end
+		end
+	end,
+})
+
+VisualGroupBox:AddToggle("SkeletonToggle", {
+	Default = false,
+	Text = "Enable Skeleton ESP",
+	Tooltip = "Toggle skeleton ESP on or off",
+
+	Callback = function(Value)
+		if Value then
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/skeleton"))()
 				if _G.EnableSkeletonESP then _G.EnableSkeletonESP() end
 			end)
-			Library:Notify({ Title = "View Mode", Description = "Skeleton ESP loaded", Time = 2 })
+			Library:Notify({ Title = "Skeleton ESP", Description = "Skeleton ESP enabled!", Time = 2 })
+		else
+			if _G.DisableSkeletonESP then _G.DisableSkeletonESP() end
+			Library:Notify({ Title = "Skeleton ESP", Description = "Skeleton ESP disabled", Time = 2 })
 		end
 	end,
 })

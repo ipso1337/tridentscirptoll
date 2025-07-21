@@ -2,8 +2,8 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
-
 local LocalPlayer = Players.LocalPlayer
+
 local AimbotEnabled = false
 local Smoothness = 50
 local FOV = 30
@@ -15,7 +15,11 @@ local Keybind = Enum.KeyCode.C
 local function isVisible(part)
 	local origin = Camera.CFrame.Position
 	local direction = (part.Position - origin).Unit * 1000
-	local result = workspace:Raycast(origin, direction, RaycastParams.new())
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+	raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+	
+	local result = workspace:Raycast(origin, direction, raycastParams)
 	return result and result.Instance and part:IsDescendantOf(result.Instance:FindFirstAncestorOfClass("Model"))
 end
 
@@ -23,7 +27,6 @@ end
 local function getClosest()
 	local closest = nil
 	local shortest = math.huge
-
 	for _, plr in pairs(Players:GetPlayers()) do
 		if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild(HitPart) then
 			local part = plr.Character[HitPart]
@@ -37,7 +40,6 @@ local function getClosest()
 			end
 		end
 	end
-
 	return closest
 end
 
@@ -51,25 +53,26 @@ DrawingFOV.Transparency = 1
 DrawingFOV.Color = Color3.fromRGB(255, 255, 255)
 DrawingFOV.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
-RunService.RenderStepped:Connect(function()
+local connection
+connection = RunService.RenderStepped:Connect(function()
 	DrawingFOV.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 	DrawingFOV.Radius = FOV * 4
-
+	
 	if not AimbotEnabled or not UserInputService:IsKeyDown(Keybind) then
 		DrawingFOV.Color = Color3.fromRGB(255, 255, 255)
 		return
 	end
-
+	
 	local target = getClosest()
 	if not target then
 		DrawingFOV.Color = Color3.fromRGB(255, 255, 255)
 		return
 	end
-
+	
 	-- Aiming
 	local targetCF = CFrame.new(Camera.CFrame.Position, target.Position)
 	Camera.CFrame = Camera.CFrame:Lerp(targetCF, Smoothness / 100)
-
+	
 	-- Shake
 	if Shake > 0 then
 		local offset = Vector3.new(
@@ -79,15 +82,81 @@ RunService.RenderStepped:Connect(function()
 		)
 		Camera.CFrame = Camera.CFrame * CFrame.new(offset)
 	end
-
+	
 	DrawingFOV.Color = Color3.fromRGB(255, 0, 0)
 end)
 
--- API
-_G.EnableAimbot = function() AimbotEnabled = true end
-_G.DisableAimbot = function() AimbotEnabled = false end
-_G.SetAimbotSmooth = function(v) Smoothness = v end
-_G.SetAimbotFOV = function(v) FOV = v end
-_G.SetAimbotShake = function(v) Shake = v end
-_G.SetAimbotPart = function(v) HitPart = v end
-_G.SetAimbotKeybind = function(v) Keybind = Enum.KeyCode[v] or Enum.KeyCode.C end
+-- Cleanup function
+local function cleanup()
+	if connection then
+		connection:Disconnect()
+		connection = nil
+	end
+	if DrawingFOV then
+		DrawingFOV:Remove()
+		DrawingFOV = nil
+	end
+end
+
+-- API Functions
+_G.EnableAimbot = function() 
+	AimbotEnabled = true 
+	print("Aimbot enabled with keybind:", Keybind.Name)
+end
+
+_G.DisableAimbot = function() 
+	AimbotEnabled = false 
+	print("Aimbot disabled")
+end
+
+_G.SetAimbotSmooth = function(v) 
+	Smoothness = v 
+	print("Aimbot smoothness set to:", v)
+end
+
+_G.SetAimbotFOV = function(v) 
+	FOV = v 
+	print("Aimbot FOV set to:", v)
+end
+
+_G.SetAimbotShake = function(v) 
+	Shake = v 
+	print("Aimbot shake set to:", v)
+end
+
+_G.SetAimbotPart = function(v) 
+	HitPart = v 
+	print("Aimbot target part set to:", v)
+end
+
+_G.SetAimbotKeybind = function(v)
+	print("Received keybind value:", v, "Type:", type(v))
+	
+	-- Handle different types of input
+	if type(v) == "string" then
+		-- If it's a string, try to convert to KeyCode
+		local keyCode = Enum.KeyCode[v]
+		if keyCode then
+			Keybind = keyCode
+			print("Keybind set to:", Keybind.Name)
+		else
+			print("Invalid keybind string:", v)
+		end
+	elseif type(v) == "userdata" and tostring(v):find("KeyCode") then
+		-- If it's already a KeyCode enum
+		Keybind = v
+		print("Keybind set to:", Keybind.Name)
+	elseif type(v) == "table" and v.Value then
+		-- If it's wrapped in a table (some libraries do this)
+		_G.SetAimbotKeybind(v.Value)
+	else
+		print("Unknown keybind format, keeping default 'C'")
+		Keybind = Enum.KeyCode.C
+	end
+end
+
+-- Cleanup on script unload
+_G.CleanupAimbot = cleanup
+
+print("Aimbot script loaded successfully!")
+print("Current keybind:", Keybind.Name)

@@ -1,5 +1,3 @@
--- Custom Roblox Script GUI
--- Modified from Linoria Library example
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
@@ -18,207 +16,154 @@ local Window = Library:CreateWindow({
 	ShowCustomCursor = true,
 })
 
--- Create tabs
 local Tabs = {
 	Combat = Window:AddTab("Combat", "sword"),
 	Visual = Window:AddTab("Visual", "eye"),
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
--- Combat Tab
 local CombatGroupBox = Tabs.Combat:AddLeftGroupbox("Combat Features", "sword")
 
--- Variables to track loaded scripts
-local currentESP = nil
-local currentWatermark = nil
-local currentSpinbot = nil
-
--- Visual Spinbot Toggle in Combat tab
-CombatGroupBox:AddToggle("VisualSpinbotToggle", {
+-- Aimbot
+CombatGroupBox:AddToggle("AimbotToggle", {
 	Default = false,
-	Text = "Visual Spinbot",
-	Tooltip = "Toggle visual spinbot on/off",
-	
+	Text = "Enable Aimbot",
+	Tooltip = "Toggle aimbot on or off",
+
 	Callback = function(Value)
-		print("[cb] Visual Spinbot toggled:", Value)
-		
 		if Value then
-			-- Enable visual spinbot
-			if not currentSpinbot then
-				-- Load spinbot script
-				pcall(function()
-					loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/visualSpinbot"))()
-					currentSpinbot = "loaded"
-				end)
-			end
-			
-			-- Enable spinbot if function exists
-			if _G.EnableVisualSpinbot then
-				_G.EnableVisualSpinbot()
-			end
-			
-			Library:Notify({
-				Title = "Visual Spinbot",
-				Description = "Visual Spinbot enabled successfully!",
-				Time = 2,
-			})
+			pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/aimbot"))()
+				if _G.EnableAimbot then _G.EnableAimbot() end
+			end)
+			Library:Notify({ Title = "Aimbot", Description = "Aimbot enabled!", Time = 2 })
 		else
-			-- Disable visual spinbot
-			if _G.DisableVisualSpinbot then
-				_G.DisableVisualSpinbot()
-			end
-			
-			Library:Notify({
-				Title = "Visual Spinbot",
-				Description = "Visual Spinbot disabled",
-				Time = 2,
-			})
+			if _G.DisableAimbot then _G.DisableAimbot() end
+			Library:Notify({ Title = "Aimbot", Description = "Aimbot disabled", Time = 2 })
 		end
 	end,
 })
 
--- Visual Tab
+CombatGroupBox:AddSlider("AimbotSmooth", {
+	Text = "Smooth",
+	Default = 50,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+	Callback = function(Value)
+		if _G.SetAimbotSmooth then _G.SetAimbotSmooth(Value) end
+	end,
+})
+
+CombatGroupBox:AddSlider("AimbotFOV", {
+	Text = "FOV",
+	Default = 30,
+	Min = 1,
+	Max = 150,
+	Rounding = 1,
+	Callback = function(Value)
+		if _G.SetAimbotFOV then _G.SetAimbotFOV(Value) end
+	end,
+})
+
+CombatGroupBox:AddSlider("AimbotShake", {
+	Text = "Shake",
+	Default = 5,
+	Min = 0,
+	Max = 30,
+	Rounding = 0,
+	Callback = function(Value)
+		if _G.SetAimbotShake then _G.SetAimbotShake(Value) end
+	end,
+})
+
+CombatGroupBox:AddDropdown("AimbotPart", {
+	Values = { "Head", "UpperTorso", "HumanoidRootPart" },
+	Default = 1,
+	Multi = false,
+	Text = "Hit Part",
+	Callback = function(Value)
+		if _G.SetAimbotPart then _G.SetAimbotPart(Value) end
+	end,
+})
+
+CombatGroupBox:AddLabel("Aimbot Keybind"):AddKeyPicker("AimbotKeybind", {
+	Default = "C",
+	Mode = "Hold",
+	Text = "Hold Key",
+	NoUI = false,
+	Callback = function(Value)
+		if _G.SetAimbotKeybind then _G.SetAimbotKeybind(Value) end
+	end,
+	ChangedCallback = function(New)
+		if _G.SetAimbotKeybind then _G.SetAimbotKeybind(New) end
+	end,
+})
+
+-- Visuals
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
--- Add the dropdown with none, corner, 3d options
 VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	Values = { "none", "corner", "3d" },
-	Default = 1, -- defaults to "none"
+	Default = 1,
 	Multi = false,
-	
+
 	Text = "View Mode",
 	Tooltip = "Select the view mode for visual features",
-	
+
 	Callback = function(Value)
-		print("[cb] View Mode changed to:", Value)
-		
-		-- Handle different modes
 		if Value == "none" then
-			-- Disable any active ESP
-			if _G.DisableBoxESP then
-				_G.DisableBoxESP()
-			end
-			if _G.DisableCornerESP then
-				_G.DisableCornerESP()
-			end
-			currentESP = nil
-			Library:Notify({
-				Title = "View Mode",
-				Description = "ESP disabled - None mode active",
-				Time = 2,
-			})
-			
+			if _G.DisableBoxESP then _G.DisableBoxESP() end
+			if _G.DisableCornerESP then _G.DisableCornerESP() end
+			Library:Notify({ Title = "View Mode", Description = "ESP disabled - None mode", Time = 2 })
 		elseif Value == "corner" then
-			-- Disable 3D ESP first
-			if _G.DisableBoxESP then
-				_G.DisableBoxESP()
-			end
-			-- Load corner ESP script
+			if _G.DisableBoxESP then _G.DisableBoxESP() end
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Corner"))()
-				-- Enable corner ESP after loading
-				if _G.EnableCornerESP then
-					_G.EnableCornerESP()
-				end
-				currentESP = "corner"
+				if _G.EnableCornerESP then _G.EnableCornerESP() end
 			end)
-			Library:Notify({
-				Title = "View Mode",
-				Description = "Corner ESP loaded successfully!",
-				Time = 2,
-			})
-			
+			Library:Notify({ Title = "View Mode", Description = "Corner ESP loaded", Time = 2 })
 		elseif Value == "3d" then
-			-- Disable corner ESP first
-			if _G.DisableCornerESP then
-				_G.DisableCornerESP()
-			end
-			-- Load 3D ESP script
+			if _G.DisableCornerESP then _G.DisableCornerESP() end
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/3D"))()
-				-- Enable the ESP after loading
-				if _G.EnableBoxESP then
-					_G.EnableBoxESP()
-				end
-				currentESP = "3d"
+				if _G.EnableBoxESP then _G.EnableBoxESP() end
 			end)
-			Library:Notify({
-				Title = "View Mode",
-				Description = "3D ESP loaded successfully!",
-				Time = 2,
-			})
+			Library:Notify({ Title = "View Mode", Description = "3D ESP loaded", Time = 2 })
 		end
 	end,
 })
 
--- Watermark Toggle
 VisualGroupBox:AddToggle("WatermarkToggle", {
 	Default = false,
 	Text = "Show Watermark",
 	Tooltip = "Toggle watermark visibility",
-	
+
 	Callback = function(Value)
-		print("[cb] Watermark toggled:", Value)
-		
 		if Value then
-			-- Enable watermark
-			if not currentWatermark then
-				-- Load watermark script
+			if not _G.EnableWatermark then
 				pcall(function()
 					loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Watermark"))()
-					currentWatermark = "loaded"
 				end)
 			end
-			
-			-- Enable watermark if function exists
-			if _G.EnableWatermark then
-				_G.EnableWatermark()
-			end
-			
-			Library:Notify({
-				Title = "Watermark",
-				Description = "Watermark enabled successfully!",
-				Time = 2,
-			})
+			if _G.EnableWatermark then _G.EnableWatermark() end
+			Library:Notify({ Title = "Watermark", Description = "Watermark enabled!", Time = 2 })
 		else
-			-- Disable watermark
-			if _G.DisableWatermark then
-				_G.DisableWatermark()
-			end
-			
-			Library:Notify({
-				Title = "Watermark",
-				Description = "Watermark disabled",
-				Time = 2,
-			})
+			if _G.DisableWatermark then _G.DisableWatermark() end
+			Library:Notify({ Title = "Watermark", Description = "Watermark disabled", Time = 2 })
 		end
 	end,
 })
 
--- Show Health Bar Button
 VisualGroupBox:AddButton({
 	Text = "Show Health Bar",
 	Tooltip = "Loads ESP script to show player health bars",
-	
+
 	Func = function()
-		-- Load the ESP script from GitHub
 		loadstring(game:HttpGet("https://raw.githubusercontent.com/Eazvy/UILibs/refs/heads/main/ESP/XCT/Example"))()
-		
-		-- Show notification
-		Library:Notify({
-			Title = "ESP Loaded",
-			Description = "Health Bar ESP has been loaded successfully!",
-			Time = 3,
-		})
+		Library:Notify({ Title = "ESP Loaded", Description = "Health Bar ESP loaded!", Time = 3 })
 	end,
 })
-
--- You can access the dropdown value later with:
--- Options.ViewModeDropdown.Value
--- You can access the watermark toggle with:
--- Toggles.WatermarkToggle.Value
--- You can access the visual spinbot toggle with:
--- Toggles.VisualSpinbotToggle.Value
 
 -- UI Settings
 local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
@@ -254,71 +199,41 @@ MenuGroup:AddDropdown("DPIDropdown", {
 	Text = "DPI Scale",
 	Callback = function(Value)
 		Value = Value:gsub("%%", "")
-		local DPI = tonumber(Value)
-		Library:SetDPIScale(DPI)
+		Library:SetDPIScale(tonumber(Value))
 	end,
 })
 
 MenuGroup:AddDivider()
-
-MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { 
-	Default = "RightShift", 
-	NoUI = true, 
-	Text = "Menu keybind" 
+MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
+	Default = "RightShift",
+	NoUI = true,
+	Text = "Menu keybind"
 })
 
 MenuGroup:AddButton("Unload", function()
-	-- Clean up any active ESP before unloading
-	if _G.CleanupBoxESP then
-		_G.CleanupBoxESP()
-	end
-	if _G.CleanupCornerESP then
-		_G.CleanupCornerESP()
-	end
-	-- Clean up watermark
-	if _G.CleanupWatermark then
-		_G.CleanupWatermark()
-	end
-	-- Clean up visual spinbot
-	if _G.CleanupVisualSpinbot then
-		_G.CleanupVisualSpinbot()
-	end
+	if _G.CleanupBoxESP then _G.CleanupBoxESP() end
+	if _G.CleanupCornerESP then _G.CleanupCornerESP() end
+	if _G.CleanupWatermark then _G.CleanupWatermark() end
+	if _G.CleanupVisualSpinbot then _G.CleanupVisualSpinbot() end
 	Library:Unload()
 end)
 
 Library.ToggleKeybind = Options.MenuKeybind
 
--- Library cleanup
 Library:OnUnload(function()
-	-- Clean up any active ESP
-	if _G.CleanupBoxESP then
-		_G.CleanupBoxESP()
-	end
-	if _G.CleanupCornerESP then
-		_G.CleanupCornerESP()
-	end
-	-- Clean up watermark
-	if _G.CleanupWatermark then
-		_G.CleanupWatermark()
-	end
-	-- Clean up visual spinbot
-	if _G.CleanupVisualSpinbot then
-		_G.CleanupVisualSpinbot()
-	end
+	if _G.CleanupBoxESP then _G.CleanupBoxESP() end
+	if _G.CleanupCornerESP then _G.CleanupCornerESP() end
+	if _G.CleanupWatermark then _G.CleanupWatermark() end
+	if _G.CleanupVisualSpinbot then _G.CleanupVisualSpinbot() end
 	print("Script unloaded!")
 end)
 
--- Setup managers
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
-
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
-
 ThemeManager:SetFolder("CustomScript")
 SaveManager:SetFolder("CustomScript/settings")
-
 SaveManager:BuildConfigSection(Tabs["UI Settings"])
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
-
 SaveManager:LoadAutoloadConfig()

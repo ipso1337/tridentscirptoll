@@ -1,28 +1,104 @@
--- Corner ESP Script (Fixed)
 -- Services
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local PlayersService = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 -- Variables
 local Camera = Workspace.CurrentCamera
-local LocalPlayer = PlayersService.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
 local Lines = {}
-local ESPConnection = nil
-local ESPEnabled = true
+local LoadedPlayers = {}
 
--- Settings
+-- Hardcoded Settings
 local Settings = {
-    Box_Color = Color3.fromRGB(255, 255, 255),
-    Box_Thickness = 2,
-    Team_Check = false,
-    Team_Color = false,
-    Autothickness = true
+    enabled = true, -- Master toggle for ESP
+    box_color = Color3.fromRGB(255, 255, 255), -- White
+    box_thickness = 2, -- Thickness of corner lines
+    corner_length = 10, -- Length of corner lines (pixels)
+    team_check = false, -- Disable team check
+    team_color = false, -- Disable team color usage
+    auto_thickness = true, -- Adjust thickness based on distance
+    simplecalc = true, -- Use simplified corner calculation for better FPS
+    distancelimit = false, -- Disable distance limit
+    maxdistance = 200, -- Maximum distance for ESP rendering
+    health_check = true -- Only show ESP for alive players
 }
 
--- Functions
-local function HasCharacter(Player)
-    return Player and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player ~= LocalPlayer
+-- Constants for precise bounding box
+local VERTICES = {
+    Vector3.new(-1, -1, -1), Vector3.new(-1, 1, -1), Vector3.new(-1, 1, 1), Vector3.new(-1, -1, 1),
+    Vector3.new(1, -1, -1), Vector3.new(1, 1, -1), Vector3.new(1, 1, 1), Vector3.new(1, -1, 1)
+}
+
+-- Utility Functions
+local function worldToScreen(world)
+    local screen, inBounds = Camera:WorldToViewportPoint(world)
+    return Vector2.new(screen.X, screen.Y), inBounds, screen.Z
+end
+
+local function isBodyPart(name)
+    return name == "Head" or name:find("Torso") or name:find("Leg") or name:find("Arm")
+end
+
+local function getBoundingBox(parts)
+    local min, max
+    for i = 1, #parts do
+        local part = parts[i]
+        local cframe, size = part.CFrame, part.Size
+        min = min or cframe.Position
+        max = max or cframe.Position
+        min = Vector3.new(
+            math.min(min.X, (cframe - size * 0.5).X),
+            math.min(min.Y, (cframe - size * 0.5).Y),
+            math.min(min.Z, (cframe - size * 0.5).Z)
+        )
+        max = Vector3.new(
+            math.max(max.X, (cframe + size * 0.5).X),
+            math.max(max.Y, (cframe + size * 0.5).Y),
+            max = math.max(max.Z, (cframe + size * 0.5).Z)
+        )
+    end
+    local center = (min + max) * 0.5
+    local front = Vector3.new(center.X, center.Y, max.Z)
+    return CFrame.new(center, front), max - min
+end
+
+local function calculateCorners(cframe, size)
+    local corners = {}
+    for i = 1, #VERTICES do
+        local pos, inBounds = worldToScreen((cframe + size * 0.5 * VERTICES[i]).Position)
+        corners[i] = pos
+    end
+    local minX, minY = Camera.ViewportSize.X, Camera.ViewportSize.Y
+    local maxX, maxY = 0, 0
+    for _, corner in ipairs(corners) do
+        minX = math.min(minX, corner.X)
+        minY = math.min(minY, corner.Y)
+        maxX = math.max(maxX, corner.X)
+        maxY = math.max(maxY, corner.Y)
+    end
+    return {
+        topLeft = Vector2.new(math.floor(minX), math.floor(minY)),
+        topRight = Vector2.new(math.floor(maxX), math.floor(minY)),
+        bottomLeft = Vector2.new(math.floor(minX), math.floor(maxY)),
+        bottomRight = Vector2.new(math.floor(maxX), math.floor(maxY))
+    }
+end
+
+local function calculateCornersSimple(head, hrp)
+    local head_position, head_inBounds = worldToScreen(head.Position - Vector3.new(0, 0.5, 0))
+    local leg_position, leg_inBounds = worldToScreen(hrp.Position - Vector3.new(0, 3.5, 0))
+    if not (head_inBounds and leg_inBounds) then return nil end
+    local headx, heady = head_position.X, head_position.Y
+    local legx, legy = leg_position.X, leg_position.Y
+    local height = legy - heady
+    local width = height / 3.6
+    return {
+        topLeft = Vector2.new(headx - width, heady),
+        topRight = Vector2.new(headx + width, heady),
+        bottomLeft = Vector2.new(headx - width, legy),
+        bottomRight = Vector2.new(headx + width, legy)
+    }
 end
 
 local function NewLine(color, thickness)
@@ -36,162 +112,159 @@ local function NewLine(color, thickness)
     return line
 end
 
-local function DrawCornerESP(Player)
-    if not HasCharacter(Player) then return end
-    
-    local Character = Player.Character
-    local HumanoidRootPart = Character.HumanoidRootPart
-    local Humanoid = Character:FindFirstChild("Humanoid")
-    
-    if not Humanoid or Humanoid.Health <= 0 then return end
-    
-    -- Create corner box around player
-    local HumPos, OnScreen = Camera:WorldToViewportPoint(HumanoidRootPart.Position)
-    
-    if not OnScreen then return end
-    
-    -- Calculate box dimensions
-    local SizeX = 3 -- Box width
-    local SizeY = 5 -- Box height
-    
-    -- Create CFrame for the box
-    local BoxCFrame = CFrame.new(HumanoidRootPart.Position, Camera.CFrame.Position)
-    
-    -- Calculate corner positions
-    local TL = Camera:WorldToViewportPoint((BoxCFrame * CFrame.new(SizeX/2, SizeY/2, 0)).Position)
-    local TR = Camera:WorldToViewportPoint((BoxCFrame * CFrame.new(-SizeX/2, SizeY/2, 0)).Position)
-    local BL = Camera:WorldToViewportPoint((BoxCFrame * CFrame.new(SizeX/2, -SizeY/2, 0)).Position)
-    local BR = Camera:WorldToViewportPoint((BoxCFrame * CFrame.new(-SizeX/2, -SizeY/2, 0)).Position)
-    
-    -- Calculate corner offset based on distance
-    local distance = (Camera.CFrame.Position - HumanoidRootPart.Position).Magnitude
-    local offset = math.clamp(1/distance*750, 10, 50)
-    
-    -- Determine color
-    local boxColor = Settings.Box_Color
-    if Settings.Team_Check then
-        if Player.TeamColor == LocalPlayer.TeamColor then
-            boxColor = Color3.fromRGB(0, 255, 0)
-        else 
-            boxColor = Color3.fromRGB(255, 255, 255)
-        end
-    end
-    
-    if Settings.Team_Color then
-        boxColor = Player.TeamColor.Color
-    end
-    
-    -- Calculate thickness
-    local thickness = Settings.Box_Thickness
-    if Settings.Autothickness then
-        thickness = math.clamp(1/distance*100, 1, 4)
-    end
-    
-    -- Create corner lines
-    -- Top Left Corner
-    local TL1 = NewLine(boxColor, thickness)
-    TL1.From = Vector2.new(TL.X, TL.Y)
-    TL1.To = Vector2.new(TL.X + offset, TL.Y)
-    TL1.Visible = true
-    table.insert(Lines, TL1)
-    
-    local TL2 = NewLine(boxColor, thickness)
-    TL2.From = Vector2.new(TL.X, TL.Y)
-    TL2.To = Vector2.new(TL.X, TL.Y + offset)
-    TL2.Visible = true
-    table.insert(Lines, TL2)
-    
-    -- Top Right Corner
-    local TR1 = NewLine(boxColor, thickness)
-    TR1.From = Vector2.new(TR.X, TR.Y)
-    TR1.To = Vector2.new(TR.X - offset, TR.Y)
-    TR1.Visible = true
-    table.insert(Lines, TR1)
-    
-    local TR2 = NewLine(boxColor, thickness)
-    TR2.From = Vector2.new(TR.X, TR.Y)
-    TR2.To = Vector2.new(TR.X, TR.Y + offset)
-    TR2.Visible = true
-    table.insert(Lines, TR2)
-    
-    -- Bottom Left Corner
-    local BL1 = NewLine(boxColor, thickness)
-    BL1.From = Vector2.new(BL.X, BL.Y)
-    BL1.To = Vector2.new(BL.X + offset, BL.Y)
-    BL1.Visible = true
-    table.insert(Lines, BL1)
-    
-    local BL2 = NewLine(boxColor, thickness)
-    BL2.From = Vector2.new(BL.X, BL.Y)
-    BL2.To = Vector2.new(BL.X, BL.Y - offset)
-    BL2.Visible = true
-    table.insert(Lines, BL2)
-    
-    -- Bottom Right Corner
-    local BR1 = NewLine(boxColor, thickness)
-    BR1.From = Vector2.new(BR.X, BR.Y)
-    BR1.To = Vector2.new(BR.X - offset, BR.Y)
-    BR1.Visible = true
-    table.insert(Lines, BR1)
-    
-    local BR2 = NewLine(boxColor, thickness)
-    BR2.From = Vector2.new(BR.X, BR.Y)
-    BR2.To = Vector2.new(BR.X, BR.Y - offset)
-    BR2.Visible = true
-    table.insert(Lines, BR2)
-end
-
-local function ClearESP()
-    -- Clear all lines
-    for i = 1, #Lines do
-        local Line = Lines[i]
-        if Line then
-            Line:Remove()
-        end
-    end
-    Lines = {}
-end
-
-local function CornerESP()
-    if not ESPEnabled then
-        ClearESP()
+-- ESP Logic
+local function create_esp(player)
+    if player == LocalPlayer or not player.Character or not player.Character:FindFirstChild("Head") or not player.Character:FindFirstChild("HumanoidRootPart") then
         return
     end
 
-    ClearESP()
-    
-    local Players = PlayersService:GetPlayers()
-    for i = 1, #Players do
-        local Player = Players[i]
-        if HasCharacter(Player) then
-            DrawCornerESP(Player)
+    LoadedPlayers[player] = {
+        lines = {},
+        connection = nil
+    }
+    local plr_data = LoadedPlayers[player]
+    local character = player.Character
+    local head = character:FindFirstChild("Head")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChild("Humanoid")
+
+    plr_data.connection = RunService.RenderStepped:Connect(function()
+        if not (Settings.enabled and head and hrp and character and character.Parent and (not Settings.health_check or (humanoid and humanoid.Health > 0))) then
+            for _, line in ipairs(plr_data.lines) do
+                line.Visible = false
+            end
+            return
+        end
+
+        local _, onScreen = worldToScreen(head.Position)
+        if not onScreen then
+            for _, line in ipairs(plr_data.lines) do
+                line.Visible = false
+            end
+            return
+        end
+
+        if Settings.distancelimit and (Camera.CFrame.Position - head.Position).Magnitude > Settings.maxdistance then
+            for _, line in ipairs(plr_data.lines) do
+                line.Visible = false
+            end
+            return
+        end
+
+        if Settings.team_check and player.Team == LocalPlayer.Team then
+            for _, line in ipairs(plr_data.lines) do
+                line.Visible = false
+            end
+            return
+        end
+
+        local corners
+        if Settings.simplecalc then
+            corners = calculateCornersSimple(head, hrp)
+        else
+            local cache = {}
+            for _, part in ipairs(character:GetChildren()) do
+                if part:IsA("BasePart") and isBodyPart(part.Name) then
+                    table.insert(cache, part)
+                end
+            end
+            if #cache > 0 then
+                local cframe, size = getBoundingBox(cache)
+                corners = calculateCorners(cframe, size)
+            end
+        end
+
+        if not corners then
+            for _, line in ipairs(plr_data.lines) do
+                line.Visible = false
+            end
+            return
+        end
+
+        -- Calculate thickness and corner length based on distance
+        local distance = (Camera.CFrame.Position - head.Position).Magnitude
+        local thickness = Settings.box_thickness
+        if Settings.auto_thickness then
+            thickness = math.clamp(1 / distance * 100, 1, 4)
+        end
+        local corner_length = math.clamp(Settings.corner_length / distance * 750, 5, 50)
+
+        -- Determine color
+        local box_color = Settings.box_color
+        if Settings.team_color and player.Team then
+            box_color = player.TeamColor.Color
+        elseif Settings.team_check and player.Team ~= LocalPlayer.Team then
+            box_color = Color3.fromRGB(255, 0, 0) -- Red for enemies
+        elseif Settings.team_check and player.Team == LocalPlayer.Team then
+            box_color = Color3.fromRGB(0, 255, 0) -- Green for teammates
+        end
+
+        -- Clear existing lines
+        for _, line in ipairs(plr_data.lines) do
+            line:Remove()
+        end
+        plr_data.lines = {}
+
+        -- Draw corner lines
+        local positions = {
+            {from = corners.topLeft, to = Vector2.new(corners.topLeft.X + corner_length, corners.topLeft.Y)}, -- TL horizontal
+            {from = corners.topLeft, to = Vector2.new(corners.topLeft.X, corners.topLeft.Y + corner_length)}, -- TL vertical
+            {from = corners.topRight, to = Vector2.new(corners.topRight.X - corner_length, corners.topRight.Y)}, -- TR horizontal
+            {from = corners.topRight, to = Vector2.new(corners.topRight.X, corners.topRight.Y + corner_length)}, -- TR vertical
+            {from = corners.bottomLeft, to = Vector2.new(corners.bottomLeft.X + corner_length, corners.bottomLeft.Y)}, -- BL horizontal
+            {from = corners.bottomLeft, to = Vector2.new(corners.bottomLeft.X, corners.bottomLeft.Y - corner_length)}, -- BL vertical
+            {from = corners.bottomRight, to = Vector2.new(corners.bottomRight.X - corner_length, corners.bottomRight.Y)}, -- BR horizontal
+            {from = corners.bottomRight, to = Vector2.new(corners.bottomRight.X, corners.bottomRight.Y - corner_length)} -- BR vertical
+        }
+
+        for _, pos in ipairs(positions) do
+            local line = NewLine(box_color, thickness)
+            line.From = pos.from
+            line.To = pos.to
+            line.Visible = true
+            table.insert(plr_data.lines, line)
+        end
+    end)
+end
+
+local function destroy_esp(player)
+    local plr_data = LoadedPlayers[player]
+    if not plr_data then return end
+    if plr_data.connection then
+        plr_data.connection:Disconnect()
+    end
+    for _, line in ipairs(plr_data.lines) do
+        line:Remove()
+    end
+    LoadedPlayers[player] = nil
+end
+
+-- Initialize ESP for existing players
+for _, player in ipairs(Players:GetPlayers()) do
+    create_esp(player)
+end
+
+-- Handle player addition and removal
+Players.PlayerAdded:Connect(create_esp)
+Players.PlayerRemoving:Connect(destroy_esp)
+
+-- Global functions for enabling/disabling ESP
+_G.EnableCornerESP = function()
+    Settings.enabled = true
+end
+
+_G.DisableCornerESP = function()
+    Settings.enabled = false
+    for _, plr_data in pairs(LoadedPlayers) do
+        for _, line in ipairs(plr_data.lines) do
+            line.Visible = false
         end
     end
 end
 
--- Main connection
-if ESPConnection then
-    ESPConnection:Disconnect()
-end
-
-ESPConnection = RunService.RenderStepped:Connect(CornerESP)
-
--- Global function to disable ESP (called when "none" is selected)
-_G.DisableCornerESP = function()
-    ESPEnabled = false
-    ClearESP()
-end
-
--- Global function to enable ESP (called when "corner" is selected)
-_G.EnableCornerESP = function()
-    ESPEnabled = true
-end
-
--- Cleanup function
-_G.CleanupCornerESP = function()
-    if ESPConnection then
-        ESPConnection:Disconnect()
-        ESPConnection = nil
+-- Cleanup on script termination
+game:BindToClose(function()
+    for player, plr_data in pairs(LoadedPlayers) do
+        destroy_esp(player)
     end
-    ClearESP()
-end
+end)

@@ -1,15 +1,13 @@
--- Visual Spinbot Script
--- This creates a visual spinning effect without actually moving the character
+-- Simple Visual Spinbot
+-- Rotates only the visual appearance of the character, not the actual hitbox
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 
 local lplr = Players.LocalPlayer
-local camera = workspace.CurrentCamera
 local connection = nil
 local rotationAngle = 0
-local rotSpeed = 5 -- rotation speed
+local rotSpeed = 15 -- rotation speed (degrees per frame)
 
 -- Global variables for control
 _G.VisualSpinbotEnabled = false
@@ -29,38 +27,34 @@ function _G.EnableVisualSpinbot()
             -- Increment rotation angle
             rotationAngle = rotationAngle + math.rad(rotSpeed)
             
-            -- Create visual spinning effect by rotating the camera around the character
-            local originalCFrame = rootPart.CFrame
-            local offset = Vector3.new(0, 2, 8) -- Camera offset from character
+            -- Apply visual rotation to all character parts except HumanoidRootPart
+            for _, part in pairs(lplr.Character:GetChildren()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    -- Create or update the visual rotation
+                    if not part:GetAttribute("OriginalCFrame") then
+                        part:SetAttribute("OriginalCFrame", part.CFrame)
+                    end
+                    
+                    local originalCFrame = part:GetAttribute("OriginalCFrame")
+                    local relativeCFrame = rootPart.CFrame:ToObjectSpace(originalCFrame)
+                    local rotatedCFrame = CFrame.Angles(0, rotationAngle, 0) * relativeCFrame
+                    part.CFrame = rootPart.CFrame * rotatedCFrame
+                end
+            end
             
-            -- Apply rotation to the offset
-            local rotatedOffset = CFrame.Angles(0, rotationAngle, 0) * offset
-            
-            -- Set camera position and look at character
-            camera.CFrame = CFrame.new(originalCFrame.Position + rotatedOffset, originalCFrame.Position + Vector3.new(0, 2, 0))
-            
-            -- Alternative method: Rotate character's visual appearance only
-            -- This creates a spinning visual effect without affecting hitbox
-            if rootPart:FindFirstChild("SpinbotWeld") then
-                rootPart.SpinbotWeld.C0 = CFrame.Angles(0, rotationAngle, 0)
-            else
-                -- Create visual spinning weld
-                local weld = Instance.new("WeldConstraint")
-                weld.Name = "SpinbotWeld"
-                weld.Part0 = rootPart
-                
-                -- Create invisible part for visual rotation
-                local visualPart = Instance.new("Part")
-                visualPart.Name = "VisualSpinPart"
-                visualPart.Transparency = 1
-                visualPart.CanCollide = false
-                visualPart.Anchored = false
-                visualPart.Size = Vector3.new(0.1, 0.1, 0.1)
-                visualPart.CFrame = rootPart.CFrame
-                visualPart.Parent = rootPart
-                
-                weld.Part1 = visualPart
-                weld.Parent = rootPart
+            -- Also rotate accessories
+            for _, accessory in pairs(lplr.Character:GetChildren()) do
+                if accessory:IsA("Accessory") and accessory:FindFirstChild("Handle") then
+                    local handle = accessory.Handle
+                    if not handle:GetAttribute("OriginalCFrame") then
+                        handle:SetAttribute("OriginalCFrame", handle.CFrame)
+                    end
+                    
+                    local originalCFrame = handle:GetAttribute("OriginalCFrame")
+                    local relativeCFrame = rootPart.CFrame:ToObjectSpace(originalCFrame)
+                    local rotatedCFrame = CFrame.Angles(0, rotationAngle, 0) * relativeCFrame
+                    handle.CFrame = rootPart.CFrame * rotatedCFrame
+                end
             end
         end
     end)
@@ -77,20 +71,24 @@ function _G.DisableVisualSpinbot()
         connection = nil
     end
     
-    -- Reset camera to normal
-    if lplr.Character and lplr.Character:FindFirstChild("Humanoid") then
-        camera.CameraSubject = lplr.Character.Humanoid
-        camera.CameraType = Enum.CameraType.Custom
-    end
-    
-    -- Clean up visual spinning parts
-    if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
-        local rootPart = lplr.Character.HumanoidRootPart
-        if rootPart:FindFirstChild("SpinbotWeld") then
-            rootPart.SpinbotWeld:Destroy()
+    -- Reset all parts to original positions
+    if lplr.Character then
+        for _, part in pairs(lplr.Character:GetChildren()) do
+            if part:IsA("BasePart") and part:GetAttribute("OriginalCFrame") then
+                part.CFrame = part:GetAttribute("OriginalCFrame")
+                part:SetAttribute("OriginalCFrame", nil)
+            end
         end
-        if rootPart:FindFirstChild("VisualSpinPart") then
-            rootPart.VisualSpinPart:Destroy()
+        
+        -- Reset accessories
+        for _, accessory in pairs(lplr.Character:GetChildren()) do
+            if accessory:IsA("Accessory") and accessory:FindFirstChild("Handle") then
+                local handle = accessory.Handle
+                if handle:GetAttribute("OriginalCFrame") then
+                    handle.CFrame = handle:GetAttribute("OriginalCFrame")
+                    handle:SetAttribute("OriginalCFrame", nil)
+                end
+            end
         end
     end
     

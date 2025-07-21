@@ -53,6 +53,9 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 			if _G.DisableBoxESP then
 				_G.DisableBoxESP()
 			end
+			if _G.DisableCornerESP then
+				_G.DisableCornerESP()
+			end
 			currentESP = nil
 			Library:Notify({
 				Title = "View Mode",
@@ -68,6 +71,10 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 			-- Load corner ESP script
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Corner"))()
+				-- Enable corner ESP after loading
+				if _G.EnableCornerESP then
+					_G.EnableCornerESP()
+				end
 				currentESP = "corner"
 			end)
 			Library:Notify({
@@ -77,6 +84,10 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 			})
 			
 		elseif Value == "3d" then
+			-- Disable corner ESP first
+			if _G.DisableCornerESP then
+				_G.DisableCornerESP()
+			end
 			-- Load 3D ESP script
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/3D"))()
@@ -168,6 +179,9 @@ MenuGroup:AddButton("Unload", function()
 	if _G.CleanupBoxESP then
 		_G.CleanupBoxESP()
 	end
+	if _G.CleanupCornerESP then
+		_G.CleanupCornerESP()
+	end
 	Library:Unload()
 end)
 
@@ -178,6 +192,9 @@ Library:OnUnload(function()
 	-- Clean up any active ESP
 	if _G.CleanupBoxESP then
 		_G.CleanupBoxESP()
+	end
+	if _G.CleanupCornerESP then
+		_G.CleanupCornerESP()
 	end
 	print("Script unloaded!")
 end)

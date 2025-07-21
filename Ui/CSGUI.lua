@@ -34,6 +34,7 @@ local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
 -- Variables to track loaded scripts
 local currentESP = nil
+local currentWatermark = nil
 
 -- Add the dropdown with none, corner, 3d options
 VisualGroupBox:AddDropdown("ViewModeDropdown", {
@@ -106,6 +107,50 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	end,
 })
 
+-- Watermark Toggle
+VisualGroupBox:AddToggle("WatermarkToggle", {
+	Default = false,
+	Text = "Show Watermark",
+	Tooltip = "Toggle watermark visibility",
+	
+	Callback = function(Value)
+		print("[cb] Watermark toggled:", Value)
+		
+		if Value then
+			-- Enable watermark
+			if not currentWatermark then
+				-- Load watermark script
+				pcall(function()
+					loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Watermark"))()
+					currentWatermark = "loaded"
+				end)
+			end
+			
+			-- Enable watermark if function exists
+			if _G.EnableWatermark then
+				_G.EnableWatermark()
+			end
+			
+			Library:Notify({
+				Title = "Watermark",
+				Description = "Watermark enabled successfully!",
+				Time = 2,
+			})
+		else
+			-- Disable watermark
+			if _G.DisableWatermark then
+				_G.DisableWatermark()
+			end
+			
+			Library:Notify({
+				Title = "Watermark",
+				Description = "Watermark disabled",
+				Time = 2,
+			})
+		end
+	end,
+})
+
 -- Show Health Bar Button
 VisualGroupBox:AddButton({
 	Text = "Show Health Bar",
@@ -126,6 +171,8 @@ VisualGroupBox:AddButton({
 
 -- You can access the dropdown value later with:
 -- Options.ViewModeDropdown.Value
+-- You can access the watermark toggle with:
+-- Toggles.WatermarkToggle.Value
 
 -- UI Settings
 local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
@@ -182,6 +229,10 @@ MenuGroup:AddButton("Unload", function()
 	if _G.CleanupCornerESP then
 		_G.CleanupCornerESP()
 	end
+	-- Clean up watermark
+	if _G.CleanupWatermark then
+		_G.CleanupWatermark()
+	end
 	Library:Unload()
 end)
 
@@ -195,6 +246,10 @@ Library:OnUnload(function()
 	end
 	if _G.CleanupCornerESP then
 		_G.CleanupCornerESP()
+	end
+	-- Clean up watermark
+	if _G.CleanupWatermark then
+		_G.CleanupWatermark()
 	end
 	print("Script unloaded!")
 end)

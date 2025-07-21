@@ -27,14 +27,58 @@ local Tabs = {
 
 -- Combat Tab
 local CombatGroupBox = Tabs.Combat:AddLeftGroupbox("Combat Features", "sword")
-CombatGroupBox:AddLabel("Combat features will be added here")
-
--- Visual Tab
-local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
 -- Variables to track loaded scripts
 local currentESP = nil
 local currentWatermark = nil
+local currentSpinbot = nil
+
+-- Visual Spinbot Toggle in Combat tab
+CombatGroupBox:AddToggle("VisualSpinbotToggle", {
+	Default = false,
+	Text = "Visual Spinbot",
+	Tooltip = "Toggle visual spinbot on/off",
+	
+	Callback = function(Value)
+		print("[cb] Visual Spinbot toggled:", Value)
+		
+		if Value then
+			-- Enable visual spinbot
+			if not currentSpinbot then
+				-- Load spinbot script
+				pcall(function()
+					loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/visualSpinbot"))()
+					currentSpinbot = "loaded"
+				end)
+			end
+			
+			-- Enable spinbot if function exists
+			if _G.EnableVisualSpinbot then
+				_G.EnableVisualSpinbot()
+			end
+			
+			Library:Notify({
+				Title = "Visual Spinbot",
+				Description = "Visual Spinbot enabled successfully!",
+				Time = 2,
+			})
+		else
+			-- Disable visual spinbot
+			if _G.DisableVisualSpinbot then
+				_G.DisableVisualSpinbot()
+			end
+			
+			Library:Notify({
+				Title = "Visual Spinbot",
+				Description = "Visual Spinbot disabled",
+				Time = 2,
+			})
+		end
+	end,
+})
+
+-- Visual Tab
+local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
 -- Add the dropdown with none, corner, 3d options
 VisualGroupBox:AddDropdown("ViewModeDropdown", {
@@ -173,6 +217,8 @@ VisualGroupBox:AddButton({
 -- Options.ViewModeDropdown.Value
 -- You can access the watermark toggle with:
 -- Toggles.WatermarkToggle.Value
+-- You can access the visual spinbot toggle with:
+-- Toggles.VisualSpinbotToggle.Value
 
 -- UI Settings
 local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
@@ -233,6 +279,10 @@ MenuGroup:AddButton("Unload", function()
 	if _G.CleanupWatermark then
 		_G.CleanupWatermark()
 	end
+	-- Clean up visual spinbot
+	if _G.CleanupVisualSpinbot then
+		_G.CleanupVisualSpinbot()
+	end
 	Library:Unload()
 end)
 
@@ -250,6 +300,10 @@ Library:OnUnload(function()
 	-- Clean up watermark
 	if _G.CleanupWatermark then
 		_G.CleanupWatermark()
+	end
+	-- Clean up visual spinbot
+	if _G.CleanupVisualSpinbot then
+		_G.CleanupVisualSpinbot()
 	end
 	print("Script unloaded!")
 end)

@@ -1,4 +1,4 @@
--- Corner ESP Script (Fixed)
+-- Optimized Corner ESP Script
 -- Services
 local RunService = game:GetService("RunService")
 local PlayersService = game:GetService("Players")
@@ -7,9 +7,11 @@ local Workspace = game:GetService("Workspace")
 -- Variables
 local Camera = Workspace.CurrentCamera
 local LocalPlayer = PlayersService.LocalPlayer
-local Lines = {}
+local PlayerESPData = {} -- Store ESP data per player
 local ESPConnection = nil
 local ESPEnabled = true
+local LastUpdateTime = 0
+local UPDATE_RATE = 1/60 -- 60 FPS cap for ESP updates
 
 -- Settings
 local Settings = {
@@ -17,7 +19,8 @@ local Settings = {
     Box_Thickness = 2,
     Team_Check = false,
     Team_Color = false,
-    Autothickness = true
+    Autothickness = true,
+    MaxDistance = 1000 -- Don't render ESP beyond this distance
 }
 
 -- Functions
@@ -36,23 +39,82 @@ local function NewLine(color, thickness)
     return line
 end
 
-local function DrawCornerESP(Player)
-    if not HasCharacter(Player) then return end
+local function CreatePlayerESP(Player)
+    if PlayerESPData[Player] then return end
+    
+    PlayerESPData[Player] = {
+        Lines = {},
+        LastPosition = Vector3.new(0, 0, 0),
+        LastUpdate = 0
+    }
+    
+    -- Create 8 lines for corners (2 lines per corner)
+    for i = 1, 8 do
+        PlayerESPData[Player].Lines[i] = NewLine(Settings.Box_Color, Settings.Box_Thickness)
+    end
+end
+
+local function RemovePlayerESP(Player)
+    if not PlayerESPData[Player] then return end
+    
+    -- Clean up lines
+    for _, line in pairs(PlayerESPData[Player].Lines) do
+        if line then
+            line:Remove()
+        end
+    end
+    
+    PlayerESPData[Player] = nil
+end
+
+local function UpdatePlayerESP(Player)
+    if not HasCharacter(Player) or not PlayerESPData[Player] then return end
     
     local Character = Player.Character
     local HumanoidRootPart = Character.HumanoidRootPart
     local Humanoid = Character:FindFirstChild("Humanoid")
     
-    if not Humanoid or Humanoid.Health <= 0 then return end
+    if not Humanoid or Humanoid.Health <= 0 then
+        -- Hide ESP for dead players
+        for _, line in pairs(PlayerESPData[Player].Lines) do
+            line.Visible = false
+        end
+        return
+    end
+    
+    -- Distance check for performance
+    local distance = (Camera.CFrame.Position - HumanoidRootPart.Position).Magnitude
+    if distance > Settings.MaxDistance then
+        for _, line in pairs(PlayerESPData[Player].Lines) do
+            line.Visible = false
+        end
+        return
+    end
+    
+    -- Check if position changed significantly (optimization)
+    local currentPos = HumanoidRootPart.Position
+    local lastPos = PlayerESPData[Player].LastPosition
+    if (currentPos - lastPos).Magnitude < 0.5 and tick() - PlayerESPData[Player].LastUpdate < 0.1 then
+        return -- Skip update if player hasn't moved much
+    end
+    
+    PlayerESPData[Player].LastPosition = currentPos
+    PlayerESPData[Player].LastUpdate = tick()
     
     -- Create corner box around player
     local HumPos, OnScreen = Camera:WorldToViewportPoint(HumanoidRootPart.Position)
     
-    if not OnScreen then return end
+    if not OnScreen then
+        -- Hide ESP when off-screen
+        for _, line in pairs(PlayerESPData[Player].Lines) do
+            line.Visible = false
+        end
+        return
+    end
     
-    -- Calculate box dimensions
-    local SizeX = 3 -- Box width
-    local SizeY = 5 -- Box height
+    -- Calculate box dimensions based on distance
+    local SizeX = math.clamp(300/distance, 1.5, 4)
+    local SizeY = math.clamp(500/distance, 2.5, 6)
     
     -- Create CFrame for the box
     local BoxCFrame = CFrame.new(HumanoidRootPart.Position, Camera.CFrame.Position)
@@ -64,12 +126,11 @@ local function DrawCornerESP(Player)
     local BR = Camera:WorldToViewportPoint((BoxCFrame * CFrame.new(-SizeX/2, -SizeY/2, 0)).Position)
     
     -- Calculate corner offset based on distance
-    local distance = (Camera.CFrame.Position - HumanoidRootPart.Position).Magnitude
-    local offset = math.clamp(1/distance*750, 10, 50)
+    local offset = math.clamp(1/distance*750, 8, 35)
     
     -- Determine color
     local boxColor = Settings.Box_Color
-    if Settings.Team_Check then
+    if Settings.Team_Check and Player.TeamColor and LocalPlayer.TeamColor then
         if Player.TeamColor == LocalPlayer.TeamColor then
             boxColor = Color3.fromRGB(0, 255, 0)
         else 
@@ -77,96 +138,114 @@ local function DrawCornerESP(Player)
         end
     end
     
-    if Settings.Team_Color then
+    if Settings.Team_Color and Player.TeamColor then
         boxColor = Player.TeamColor.Color
     end
     
     -- Calculate thickness
     local thickness = Settings.Box_Thickness
     if Settings.Autothickness then
-        thickness = math.clamp(1/distance*100, 1, 4)
+        thickness = math.clamp(1/distance*100, 0.5, 3)
     end
     
-    -- Create corner lines
-    -- Top Left Corner
-    local TL1 = NewLine(boxColor, thickness)
-    TL1.From = Vector2.new(TL.X, TL.Y)
-    TL1.To = Vector2.new(TL.X + offset, TL.Y)
-    TL1.Visible = true
-    table.insert(Lines, TL1)
+    -- Update existing lines instead of creating new ones
+    local lines = PlayerESPData[Player].Lines
     
-    local TL2 = NewLine(boxColor, thickness)
-    TL2.From = Vector2.new(TL.X, TL.Y)
-    TL2.To = Vector2.new(TL.X, TL.Y + offset)
-    TL2.Visible = true
-    table.insert(Lines, TL2)
+    -- Top Left Corner
+    lines[1].From = Vector2.new(TL.X, TL.Y)
+    lines[1].To = Vector2.new(TL.X + offset, TL.Y)
+    lines[1].Color = boxColor
+    lines[1].Thickness = thickness
+    lines[1].Visible = true
+    
+    lines[2].From = Vector2.new(TL.X, TL.Y)
+    lines[2].To = Vector2.new(TL.X, TL.Y + offset)
+    lines[2].Color = boxColor
+    lines[2].Thickness = thickness
+    lines[2].Visible = true
     
     -- Top Right Corner
-    local TR1 = NewLine(boxColor, thickness)
-    TR1.From = Vector2.new(TR.X, TR.Y)
-    TR1.To = Vector2.new(TR.X - offset, TR.Y)
-    TR1.Visible = true
-    table.insert(Lines, TR1)
+    lines[3].From = Vector2.new(TR.X, TR.Y)
+    lines[3].To = Vector2.new(TR.X - offset, TR.Y)
+    lines[3].Color = boxColor
+    lines[3].Thickness = thickness
+    lines[3].Visible = true
     
-    local TR2 = NewLine(boxColor, thickness)
-    TR2.From = Vector2.new(TR.X, TR.Y)
-    TR2.To = Vector2.new(TR.X, TR.Y + offset)
-    TR2.Visible = true
-    table.insert(Lines, TR2)
+    lines[4].From = Vector2.new(TR.X, TR.Y)
+    lines[4].To = Vector2.new(TR.X, TR.Y + offset)
+    lines[4].Color = boxColor
+    lines[4].Thickness = thickness
+    lines[4].Visible = true
     
     -- Bottom Left Corner
-    local BL1 = NewLine(boxColor, thickness)
-    BL1.From = Vector2.new(BL.X, BL.Y)
-    BL1.To = Vector2.new(BL.X + offset, BL.Y)
-    BL1.Visible = true
-    table.insert(Lines, BL1)
+    lines[5].From = Vector2.new(BL.X, BL.Y)
+    lines[5].To = Vector2.new(BL.X + offset, BL.Y)
+    lines[5].Color = boxColor
+    lines[5].Thickness = thickness
+    lines[5].Visible = true
     
-    local BL2 = NewLine(boxColor, thickness)
-    BL2.From = Vector2.new(BL.X, BL.Y)
-    BL2.To = Vector2.new(BL.X, BL.Y - offset)
-    BL2.Visible = true
-    table.insert(Lines, BL2)
+    lines[6].From = Vector2.new(BL.X, BL.Y)
+    lines[6].To = Vector2.new(BL.X, BL.Y - offset)
+    lines[6].Color = boxColor
+    lines[6].Thickness = thickness
+    lines[6].Visible = true
     
     -- Bottom Right Corner
-    local BR1 = NewLine(boxColor, thickness)
-    BR1.From = Vector2.new(BR.X, BR.Y)
-    BR1.To = Vector2.new(BR.X - offset, BR.Y)
-    BR1.Visible = true
-    table.insert(Lines, BR1)
+    lines[7].From = Vector2.new(BR.X, BR.Y)
+    lines[7].To = Vector2.new(BR.X - offset, BR.Y)
+    lines[7].Color = boxColor
+    lines[7].Thickness = thickness
+    lines[7].Visible = true
     
-    local BR2 = NewLine(boxColor, thickness)
-    BR2.From = Vector2.new(BR.X, BR.Y)
-    BR2.To = Vector2.new(BR.X, BR.Y - offset)
-    BR2.Visible = true
-    table.insert(Lines, BR2)
-end
-
-local function ClearESP()
-    -- Clear all lines
-    for i = 1, #Lines do
-        local Line = Lines[i]
-        if Line then
-            Line:Remove()
-        end
-    end
-    Lines = {}
+    lines[8].From = Vector2.new(BR.X, BR.Y)
+    lines[8].To = Vector2.new(BR.X, BR.Y - offset)
+    lines[8].Color = boxColor
+    lines[8].Thickness = thickness
+    lines[8].Visible = true
 end
 
 local function CornerESP()
-    if not ESPEnabled then
-        ClearESP()
-        return
-    end
-
-    ClearESP()
+    if not ESPEnabled then return end
+    
+    -- Rate limiting
+    local currentTime = tick()
+    if currentTime - LastUpdateTime < UPDATE_RATE then return end
+    LastUpdateTime = currentTime
     
     local Players = PlayersService:GetPlayers()
-    for i = 1, #Players do
-        local Player = Players[i]
-        if HasCharacter(Player) then
-            DrawCornerESP(Player)
+    
+    -- Remove ESP for players who left
+    for Player, _ in pairs(PlayerESPData) do
+        if not table.find(Players, Player) then
+            RemovePlayerESP(Player)
         end
     end
+    
+    -- Update ESP for current players
+    for _, Player in pairs(Players) do
+        if HasCharacter(Player) then
+            CreatePlayerESP(Player)
+            UpdatePlayerESP(Player)
+        elseif PlayerESPData[Player] then
+            -- Hide ESP for players without character
+            for _, line in pairs(PlayerESPData[Player].Lines) do
+                line.Visible = false
+            end
+        end
+    end
+end
+
+-- Cleanup function
+local function ClearAllESP()
+    for Player, _ in pairs(PlayerESPData) do
+        RemovePlayerESP(Player)
+    end
+    PlayerESPData = {}
+end
+
+-- Player removal handler
+local function OnPlayerRemoving(Player)
+    RemovePlayerESP(Player)
 end
 
 -- Main connection
@@ -174,15 +253,16 @@ if ESPConnection then
     ESPConnection:Disconnect()
 end
 
-ESPConnection = RunService.RenderStepped:Connect(CornerESP)
+ESPConnection = RunService.Heartbeat:Connect(CornerESP) -- Using Heartbeat instead of RenderStepped
+PlayersService.PlayerRemoving:Connect(OnPlayerRemoving)
 
--- Global function to disable ESP (called when "none" is selected)
+-- Global function to disable ESP
 _G.DisableCornerESP = function()
     ESPEnabled = false
-    ClearESP()
+    ClearAllESP()
 end
 
--- Global function to enable ESP (called when "corner" is selected)
+-- Global function to enable ESP
 _G.EnableCornerESP = function()
     ESPEnabled = true
 end
@@ -193,5 +273,14 @@ _G.CleanupCornerESP = function()
         ESPConnection:Disconnect()
         ESPConnection = nil
     end
-    ClearESP()
+    ClearAllESP()
+end
+
+-- Settings functions
+_G.SetCornerESPDistance = function(distance)
+    Settings.MaxDistance = distance
+end
+
+_G.SetCornerESPUpdateRate = function(rate)
+    UPDATE_RATE = 1/rate
 end

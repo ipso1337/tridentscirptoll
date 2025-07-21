@@ -32,13 +32,21 @@ CombatGroupBox:AddToggle("AimbotToggle", {
 
 	Callback = function(Value)
 		if Value then
-			pcall(function()
+			local success, err = pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/aimbot"))()
-				if _G.EnableAimbot then _G.EnableAimbot() end
+				if _G.EnableAimbot then 
+					_G.EnableAimbot() 
+				end
 			end)
-			Library:Notify({ Title = "Aimbot", Description = "Aimbot enabled!", Time = 2 })
+			if success then
+				Library:Notify({ Title = "Aimbot", Description = "Aimbot enabled!", Time = 2 })
+			else
+				Library:Notify({ Title = "Aimbot", Description = "Failed to load aimbot: " .. tostring(err), Time = 3 })
+			end
 		else
-			if _G.DisableAimbot then _G.DisableAimbot() end
+			if _G.DisableAimbot then 
+				_G.DisableAimbot() 
+			end
 			Library:Notify({ Title = "Aimbot", Description = "Aimbot disabled", Time = 2 })
 		end
 	end,
@@ -51,7 +59,9 @@ CombatGroupBox:AddSlider("AimbotSmooth", {
 	Max = 100,
 	Rounding = 0,
 	Callback = function(Value)
-		if _G.SetAimbotSmooth then _G.SetAimbotSmooth(Value) end
+		if _G.SetAimbotSmooth then 
+			_G.SetAimbotSmooth(Value) 
+		end
 	end,
 })
 
@@ -62,7 +72,9 @@ CombatGroupBox:AddSlider("AimbotFOV", {
 	Max = 150,
 	Rounding = 1,
 	Callback = function(Value)
-		if _G.SetAimbotFOV then _G.SetAimbotFOV(Value) end
+		if _G.SetAimbotFOV then 
+			_G.SetAimbotFOV(Value) 
+		end
 	end,
 })
 
@@ -73,7 +85,9 @@ CombatGroupBox:AddSlider("AimbotShake", {
 	Max = 30,
 	Rounding = 0,
 	Callback = function(Value)
-		if _G.SetAimbotShake then _G.SetAimbotShake(Value) end
+		if _G.SetAimbotShake then 
+			_G.SetAimbotShake(Value) 
+		end
 	end,
 })
 
@@ -83,7 +97,9 @@ CombatGroupBox:AddDropdown("AimbotPart", {
 	Multi = false,
 	Text = "Hit Part",
 	Callback = function(Value)
-		if _G.SetAimbotPart then _G.SetAimbotPart(Value) end
+		if _G.SetAimbotPart then 
+			_G.SetAimbotPart(Value) 
+		end
 	end,
 })
 
@@ -93,10 +109,14 @@ CombatGroupBox:AddLabel("Aimbot Keybind"):AddKeyPicker("AimbotKeybind", {
 	Text = "Hold Key",
 	NoUI = false,
 	Callback = function(Value)
-		if _G.SetAimbotKeybind then _G.SetAimbotKeybind(Value) end
+		if _G.SetAimbotKeybind then 
+			_G.SetAimbotKeybind(Value) 
+		end
 	end,
 	ChangedCallback = function(New)
-		if _G.SetAimbotKeybind then _G.SetAimbotKeybind(New) end
+		if _G.SetAimbotKeybind then 
+			_G.SetAimbotKeybind(New) 
+		end
 	end,
 })
 
@@ -107,29 +127,48 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	Values = { "none", "corner", "3d" },
 	Default = 1,
 	Multi = false,
-
 	Text = "View Mode",
 	Tooltip = "Select the view mode for visual features",
 
 	Callback = function(Value)
 		if Value == "none" then
-			if _G.DisableBoxESP then _G.DisableBoxESP() end
-			if _G.DisableCornerESP then _G.DisableCornerESP() end
+			if _G.DisableBoxESP then 
+				_G.DisableBoxESP() 
+			end
+			if _G.DisableCornerESP then 
+				_G.DisableCornerESP() 
+			end
 			Library:Notify({ Title = "View Mode", Description = "ESP disabled - None mode", Time = 2 })
 		elseif Value == "corner" then
-			if _G.DisableBoxESP then _G.DisableBoxESP() end
-			pcall(function()
+			if _G.DisableBoxESP then 
+				_G.DisableBoxESP() 
+			end
+			local success, err = pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Corner"))()
-				if _G.EnableCornerESP then _G.EnableCornerESP() end
+				if _G.EnableCornerESP then 
+					_G.EnableCornerESP() 
+				end
 			end)
-			Library:Notify({ Title = "View Mode", Description = "Corner ESP loaded", Time = 2 })
+			if success then
+				Library:Notify({ Title = "View Mode", Description = "Corner ESP loaded", Time = 2 })
+			else
+				Library:Notify({ Title = "View Mode", Description = "Failed to load Corner ESP: " .. tostring(err), Time = 3 })
+			end
 		elseif Value == "3d" then
-			if _G.DisableCornerESP then _G.DisableCornerESP() end
-			pcall(function()
+			if _G.DisableCornerESP then 
+				_G.DisableCornerESP() 
+			end
+			local success, err = pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/3D"))()
-				if _G.EnableBoxESP then _G.EnableBoxESP() end
+				if _G.EnableBoxESP then 
+					_G.EnableBoxESP() 
+				end
 			end)
-			Library:Notify({ Title = "View Mode", Description = "3D ESP loaded", Time = 2 })
+			if success then
+				Library:Notify({ Title = "View Mode", Description = "3D ESP loaded", Time = 2 })
+			else
+				Library:Notify({ Title = "View Mode", Description = "Failed to load 3D ESP: " .. tostring(err), Time = 3 })
+			end
 		end
 	end,
 })
@@ -141,13 +180,21 @@ VisualGroupBox:AddToggle("SkeletonToggle", {
 
 	Callback = function(Value)
 		if Value then
-			pcall(function()
+			local success, err = pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/skeleton"))()
-				if _G.EnableSkeletonESP then _G.EnableSkeletonESP() end
+				if _G.EnableSkeletonESP then 
+					_G.EnableSkeletonESP() 
+				end
 			end)
-			Library:Notify({ Title = "Skeleton ESP", Description = "Skeleton ESP enabled!", Time = 2 })
+			if success then
+				Library:Notify({ Title = "Skeleton ESP", Description = "Skeleton ESP enabled!", Time = 2 })
+			else
+				Library:Notify({ Title = "Skeleton ESP", Description = "Failed to load Skeleton ESP: " .. tostring(err), Time = 3 })
+			end
 		else
-			if _G.DisableSkeletonESP then _G.DisableSkeletonESP() end
+			if _G.DisableSkeletonESP then 
+				_G.DisableSkeletonESP() 
+			end
 			Library:Notify({ Title = "Skeleton ESP", Description = "Skeleton ESP disabled", Time = 2 })
 		end
 	end,
@@ -160,15 +207,24 @@ VisualGroupBox:AddToggle("WatermarkToggle", {
 
 	Callback = function(Value)
 		if Value then
-			if not _G.EnableWatermark then
-				pcall(function()
+			if not _G.WatermarkLoaded then
+				local success, err = pcall(function()
 					loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Watermark"))()
+					_G.WatermarkLoaded = true
 				end)
+				if not success then
+					Library:Notify({ Title = "Watermark", Description = "Failed to load Watermark: " .. tostring(err), Time = 3 })
+					return
+				end
 			end
-			if _G.EnableWatermark then _G.EnableWatermark() end
+			if _G.EnableWatermark then 
+				_G.EnableWatermark() 
+			end
 			Library:Notify({ Title = "Watermark", Description = "Watermark enabled!", Time = 2 })
 		else
-			if _G.DisableWatermark then _G.DisableWatermark() end
+			if _G.DisableWatermark then 
+				_G.DisableWatermark() 
+			end
 			Library:Notify({ Title = "Watermark", Description = "Watermark disabled", Time = 2 })
 		end
 	end,
@@ -179,8 +235,14 @@ VisualGroupBox:AddButton({
 	Tooltip = "Loads ESP script to show player health bars",
 
 	Func = function()
-		loadstring(game:HttpGet("https://raw.githubusercontent.com/Eazvy/UILibs/refs/heads/main/ESP/XCT/Example"))()
-		Library:Notify({ Title = "ESP Loaded", Description = "Health Bar ESP loaded!", Time = 3 })
+		local success, err = pcall(function()
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/Eazvy/UILibs/refs/heads/main/ESP/XCT/Example"))()
+		end)
+		if success then
+			Library:Notify({ Title = "ESP Loaded", Description = "Health Bar ESP loaded!", Time = 3 })
+		else
+			Library:Notify({ Title = "ESP Error", Description = "Failed to load Health Bar ESP: " .. tostring(err), Time = 3 })
+		end
 	end,
 })
 
@@ -217,8 +279,10 @@ MenuGroup:AddDropdown("DPIDropdown", {
 	Default = "100%",
 	Text = "DPI Scale",
 	Callback = function(Value)
-		Value = Value:gsub("%%", "")
-		Library:SetDPIScale(tonumber(Value))
+		local DPI = tonumber(Value:gsub("%%", ""))
+		if DPI then
+			Library:SetDPIScale(DPI)
+		end
 	end,
 })
 
@@ -229,26 +293,50 @@ MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
 	Text = "Menu keybind"
 })
 
-MenuGroup:AddButton("Unload", function()
-	if _G.CleanupBoxESP then _G.CleanupBoxESP() end
-	if _G.CleanupCornerESP then _G.CleanupCornerESP() end
-	if _G.CleanupSkeletonESP then _G.CleanupSkeletonESP() end
-	if _G.CleanupWatermark then _G.CleanupWatermark() end
-	if _G.CleanupVisualSpinbot then _G.CleanupVisualSpinbot() end
-	Library:Unload()
-end)
+MenuGroup:AddButton({
+	Text = "Unload",
+	Func = function()
+		-- Cleanup all ESP functions
+		local cleanupFunctions = {
+			"CleanupBoxESP",
+			"CleanupCornerESP", 
+			"CleanupSkeletonESP",
+			"CleanupWatermark",
+			"CleanupVisualSpinbot"
+		}
+		
+		for _, funcName in ipairs(cleanupFunctions) do
+			if _G[funcName] then 
+				pcall(_G[funcName])
+			end
+		end
+		
+		Library:Unload()
+	end,
+})
 
 Library.ToggleKeybind = Options.MenuKeybind
 
 Library:OnUnload(function()
-	if _G.CleanupBoxESP then _G.CleanupBoxESP() end
-	if _G.CleanupCornerESP then _G.CleanupCornerESP() end
-	if _G.CleanupSkeletonESP then _G.CleanupSkeletonESP() end
-	if _G.CleanupWatermark then _G.CleanupWatermark() end
-	if _G.CleanupVisualSpinbot then _G.CleanupVisualSpinbot() end
+	-- Cleanup all ESP functions on unload
+	local cleanupFunctions = {
+		"CleanupBoxESP",
+		"CleanupCornerESP", 
+		"CleanupSkeletonESP",
+		"CleanupWatermark",
+		"CleanupVisualSpinbot"
+	}
+	
+	for _, funcName in ipairs(cleanupFunctions) do
+		if _G[funcName] then 
+			pcall(_G[funcName])
+		end
+	end
+	
 	print("Script unloaded!")
 end)
 
+-- Initialize managers
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()

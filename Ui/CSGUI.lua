@@ -1,171 +1,124 @@
--- Script by ipso1337
--- Loader: loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/Ui/CSGUI.lua"))()
+-- Custom Roblox Script GUI
+-- Modified from Linoria Library example
 
-local repo = 'https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/'
+local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
+local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
+local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
-local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 local Options = Library.Options
 local Toggles = Library.Toggles
 
+Library.ForceCheckbox = false
 Library.ShowToggleFrameInKeybinds = true
-Library.ShowCustomCursor = true
-Library.NotifySide = "Left"
 
 local Window = Library:CreateWindow({
-	Title = 'Trident Script',
-	Center = true,
-	AutoShow = true,
-	Resizable = true,
+	Title = "Custom Script",
+	Footer = "version: 1.0",
+	Icon = 95816097006870,
+	NotifySide = "Right",
 	ShowCustomCursor = true,
-	NotifySide = "Left",
-	TabPadding = 8,
-	MenuFadeTime = 0.2
 })
 
 -- Create tabs
 local Tabs = {
-	Combat = Window:AddTab('Combat'),
-	Visual = Window:AddTab('Visual'),
-	Misc = Window:AddTab('Misc'),
-	Other = Window:AddTab('Other'),
+	Combat = Window:AddTab("Combat", "sword"),
+	Visual = Window:AddTab("Visual", "eye"),
+	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
 -- Combat Tab
-local CombatLeftGroupBox = Tabs.Combat:AddLeftGroupbox('Combat Features')
-CombatLeftGroupBox:AddToggle('Aimbot', {
-	Text = 'Aimbot',
-	Tooltip = 'Automatically aims at enemies',
-	Default = false,
-	Callback = function(Value)
-		print('[Combat] Aimbot:', Value)
-	end
-})
+local CombatGroupBox = Tabs.Combat:AddLeftGroupbox("Combat Features", "sword")
 
-CombatLeftGroupBox:AddToggle('ESP', {
-	Text = 'ESP',
-	Tooltip = 'Shows enemy locations',
-	Default = false,
-	Callback = function(Value)
-		print('[Combat] ESP:', Value)
-	end
-})
+CombatGroupBox:AddLabel("Combat features will be added here")
 
 -- Visual Tab
-local VisualLeftGroupBox = Tabs.Visual:AddLeftGroupbox('Visual Features')
-VisualLeftGroupBox:AddToggle('Wallhack', {
-	Text = 'Wallhack',
-	Tooltip = 'See through walls',
-	Default = false,
-	Callback = function(Value)
-		print('[Visual] Wallhack:', Value)
-	end
+local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
+
+-- Show Health Bar Button
+VisualGroupBox:AddButton({
+	Text = "Show Health Bar",
+	Tooltip = "Loads ESP script to show player health bars",
+	
+	Func = function()
+		-- Load the ESP script from GitHub
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/Eazvy/UILibs/refs/heads/main/ESP/XCT/Example"))()
+		
+		-- Show notification
+		Library:Notify({
+			Title = "ESP Loaded",
+			Description = "Health Bar ESP has been loaded successfully!",
+			Time = 3,
+		})
+	end,
 })
 
-VisualLeftGroupBox:AddToggle('Chams', {
-	Text = 'Chams',
-	Tooltip = 'Highlight players',
-	Default = false,
-	Callback = function(Value)
-		print('[Visual] Chams:', Value)
-	end
-})
+-- UI Settings
+local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
 
--- Misc Tab
-local MiscLeftGroupBox = Tabs.Misc:AddLeftGroupbox('Misc Features')
-MiscLeftGroupBox:AddToggle('Speed', {
-	Text = 'Speed Hack',
-	Tooltip = 'Increases movement speed',
-	Default = false,
-	Callback = function(Value)
-		print('[Misc] Speed:', Value)
-	end
-})
-
-MiscLeftGroupBox:AddToggle('Fly', {
-	Text = 'Fly',
-	Tooltip = 'Allows flying',
-	Default = false,
-	Callback = function(Value)
-		print('[Misc] Fly:', Value)
-	end
-})
-
--- Other Tab (UI Settings)
-local MenuGroup = Tabs.Other:AddLeftGroupbox('Menu')
-
-MenuGroup:AddToggle("KeybindMenuOpen", { 
-	Default = Library.KeybindFrame.Visible, 
-	Text = "Open Keybind Menu", 
-	Callback = function(value) 
-		Library.KeybindFrame.Visible = value 
-	end
+MenuGroup:AddToggle("KeybindMenuOpen", {
+	Default = Library.KeybindFrame.Visible,
+	Text = "Open Keybind Menu",
+	Callback = function(value)
+		Library.KeybindFrame.Visible = value
+	end,
 })
 
 MenuGroup:AddToggle("ShowCustomCursor", {
-	Text = "Custom Cursor", 
-	Default = true, 
-	Callback = function(Value) 
-		Library.ShowCustomCursor = Value 
-	end
+	Text = "Custom Cursor",
+	Default = true,
+	Callback = function(Value)
+		Library.ShowCustomCursor = Value
+	end,
+})
+
+MenuGroup:AddDropdown("NotificationSide", {
+	Values = { "Left", "Right" },
+	Default = "Right",
+	Text = "Notification Side",
+	Callback = function(Value)
+		Library:SetNotifySide(Value)
+	end,
+})
+
+MenuGroup:AddDropdown("DPIDropdown", {
+	Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
+	Default = "100%",
+	Text = "DPI Scale",
+	Callback = function(Value)
+		Value = Value:gsub("%%", "")
+		local DPI = tonumber(Value)
+		Library:SetDPIScale(DPI)
+	end,
 })
 
 MenuGroup:AddDivider()
-
 MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { 
 	Default = "RightShift", 
 	NoUI = true, 
 	Text = "Menu keybind" 
 })
 
-MenuGroup:AddButton("Unload", function() 
-	Library:Unload() 
+MenuGroup:AddButton("Unload", function()
+	Library:Unload()
 end)
 
 Library.ToggleKeybind = Options.MenuKeybind
 
--- Library functions
-Library:SetWatermarkVisibility(true)
-
--- Watermark with FPS and ping
-local FrameTimer = tick()
-local FrameCounter = 0;
-local FPS = 60;
-
-local WatermarkConnection = game:GetService('RunService').RenderStepped:Connect(function()
-	FrameCounter += 1;
-
-	if (tick() - FrameTimer) >= 1 then
-		FPS = FrameCounter;
-		FrameTimer = tick();
-		FrameCounter = 0;
-	end;
-
-	Library:SetWatermark(('Trident Script | %s fps | %s ms'):format(
-		math.floor(FPS),
-		math.floor(game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue())
-	));
-end);
-
+-- Library cleanup
 Library:OnUnload(function()
-	WatermarkConnection:Disconnect()
-	print('Unloaded!')
-	Library.Unloaded = true
+	print("Script unloaded!")
 end)
 
 -- Setup managers
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
-
 SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
 
-ThemeManager:SetFolder('TridentScript')
-SaveManager:SetFolder('TridentScript/configs')
+ThemeManager:SetFolder("CustomScript")
+SaveManager:SetFolder("CustomScript/settings")
 
--- Build config and theme sections
-SaveManager:BuildConfigSection(Tabs.Other)
-ThemeManager:ApplyToTab(Tabs.Other)
-
+SaveManager:BuildConfigSection(Tabs["UI Settings"])
+ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()

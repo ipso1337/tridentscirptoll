@@ -1,1 +1,257 @@
+-- Corner ESP Script
+-- Settings
+local Settings = {
+    Box_Color = Color3.fromRGB(255, 255, 255), -- Changed to white
+    Box_Thickness = 2,
+    Team_Check = false,
+    Team_Color = false,
+    Autothickness = true
+}
 
+-- Services
+local Space = game:GetService("Workspace")
+local Player = game:GetService("Players").LocalPlayer
+local Camera = Space.CurrentCamera
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+-- Variables
+local ESPEnabled = true
+local ESPConnections = {}
+local ESPLibraries = {}
+
+-- Functions
+local function NewLine(color, thickness)
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.From = Vector2.new(0, 0)
+    line.To = Vector2.new(0, 0)
+    line.Color = color
+    line.Thickness = thickness
+    line.Transparency = 1
+    return line
+end
+
+local function Vis(lib, state)
+    if not lib then return end
+    for i, v in pairs(lib) do
+        if v then
+            v.Visible = state
+        end
+    end
+end
+
+local function Colorize(lib, color)
+    if not lib then return end
+    for i, v in pairs(lib) do
+        if v then
+            v.Color = color
+        end
+    end
+end
+
+-- Main Draw Function
+local function Main(plr)
+    if not plr or plr == Player then return end
+    
+    repeat wait() until plr.Character ~= nil and plr.Character:FindFirstChild("Humanoid") ~= nil
+    
+    local Library = {
+        TL1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        TL2 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        TR1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        TR2 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        BL1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        BL2 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        BR1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        BR2 = NewLine(Settings.Box_Color, Settings.Box_Thickness)
+    }
+    
+    ESPLibraries[plr.Name] = Library
+    
+    local oripart = Instance.new("Part")
+    oripart.Parent = Space
+    oripart.Transparency = 1
+    oripart.CanCollide = false
+    oripart.Size = Vector3.new(1, 1, 1)
+    oripart.Position = Vector3.new(0, 0, 0)
+    
+    -- Updater Loop
+    local function Updater()
+        local connection
+        connection = RunService.RenderStepped:Connect(function()
+            if not ESPEnabled then
+                Vis(Library, false)
+                return
+            end
+            
+            if plr.Character ~= nil and 
+               plr.Character:FindFirstChild("Humanoid") ~= nil and 
+               plr.Character:FindFirstChild("HumanoidRootPart") ~= nil and 
+               plr.Character.Humanoid.Health > 0 and 
+               plr.Character:FindFirstChild("Head") ~= nil then
+                
+                local Hum = plr.Character
+                local HumPos, vis = Camera:WorldToViewportPoint(Hum.HumanoidRootPart.Position)
+                
+                if vis then
+                    oripart.Size = Vector3.new(Hum.HumanoidRootPart.Size.X, Hum.HumanoidRootPart.Size.Y * 1.5, Hum.HumanoidRootPart.Size.Z)
+                    oripart.CFrame = CFrame.new(Hum.HumanoidRootPart.CFrame.Position, Camera.CFrame.Position)
+                    
+                    local SizeX = oripart.Size.X
+                    local SizeY = oripart.Size.Y
+                    local TL = Camera:WorldToViewportPoint((oripart.CFrame * CFrame.new(SizeX, SizeY, 0)).Position)
+                    local TR = Camera:WorldToViewportPoint((oripart.CFrame * CFrame.new(-SizeX, SizeY, 0)).Position)
+                    local BL = Camera:WorldToViewportPoint((oripart.CFrame * CFrame.new(SizeX, -SizeY, 0)).Position)
+                    local BR = Camera:WorldToViewportPoint((oripart.CFrame * CFrame.new(-SizeX, -SizeY, 0)).Position)
+
+                    if Settings.Team_Check then
+                        if plr.TeamColor == Player.TeamColor then
+                            Colorize(Library, Color3.fromRGB(0, 255, 0))
+                        else 
+                            Colorize(Library, Color3.fromRGB(255, 255, 255)) -- Keep white for enemies
+                        end
+                    else
+                        Colorize(Library, Settings.Box_Color) -- Always white
+                    end
+
+                    if Settings.Team_Color then
+                        Colorize(Library, plr.TeamColor.Color)
+                    end
+
+                    local ratio = (Camera.CFrame.Position - Hum.HumanoidRootPart.Position).magnitude
+                    local offset = math.clamp(1/ratio*750, 2, 300)
+
+                    -- Top Left Corner
+                    Library.TL1.From = Vector2.new(TL.X, TL.Y)
+                    Library.TL1.To = Vector2.new(TL.X + offset, TL.Y)
+                    Library.TL2.From = Vector2.new(TL.X, TL.Y)
+                    Library.TL2.To = Vector2.new(TL.X, TL.Y + offset)
+
+                    -- Top Right Corner
+                    Library.TR1.From = Vector2.new(TR.X, TR.Y)
+                    Library.TR1.To = Vector2.new(TR.X - offset, TR.Y)
+                    Library.TR2.From = Vector2.new(TR.X, TR.Y)
+                    Library.TR2.To = Vector2.new(TR.X, TR.Y + offset)
+
+                    -- Bottom Left Corner
+                    Library.BL1.From = Vector2.new(BL.X, BL.Y)
+                    Library.BL1.To = Vector2.new(BL.X + offset, BL.Y)
+                    Library.BL2.From = Vector2.new(BL.X, BL.Y)
+                    Library.BL2.To = Vector2.new(BL.X, BL.Y - offset)
+
+                    -- Bottom Right Corner
+                    Library.BR1.From = Vector2.new(BR.X, BR.Y)
+                    Library.BR1.To = Vector2.new(BR.X - offset, BR.Y)
+                    Library.BR2.From = Vector2.new(BR.X, BR.Y)
+                    Library.BR2.To = Vector2.new(BR.X, BR.Y - offset)
+
+                    Vis(Library, true)
+
+                    if Settings.Autothickness then
+                        local distance = (Player.Character.HumanoidRootPart.Position - oripart.Position).magnitude
+                        local value = math.clamp(1/distance*100, 1, 4)
+                        for u, x in pairs(Library) do
+                            if x then
+                                x.Thickness = value
+                            end
+                        end
+                    else 
+                        for u, x in pairs(Library) do
+                            if x then
+                                x.Thickness = Settings.Box_Thickness
+                            end
+                        end
+                    end
+                else 
+                    Vis(Library, false)
+                end
+            else 
+                Vis(Library, false)
+                if Players:FindFirstChild(plr.Name) == nil then
+                    -- Clean up
+                    for i, v in pairs(Library) do
+                        if v then
+                            v:Remove()
+                        end
+                    end
+                    if oripart then
+                        oripart:Destroy()
+                    end
+                    ESPLibraries[plr.Name] = nil
+                    connection:Disconnect()
+                end
+            end
+        end)
+        
+        ESPConnections[plr.Name] = connection
+    end
+    
+    coroutine.wrap(Updater)()
+end
+
+local function ClearAllESP()
+    -- Disconnect all connections
+    for name, connection in pairs(ESPConnections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    ESPConnections = {}
+    
+    -- Remove all drawing objects
+    for name, library in pairs(ESPLibraries) do
+        if library then
+            for i, v in pairs(library) do
+                if v then
+                    v:Remove()
+                end
+            end
+        end
+    end
+    ESPLibraries = {}
+    
+    -- Clean up workspace parts
+    for _, obj in pairs(Space:GetChildren()) do
+        if obj.Name == "Part" and obj.Transparency == 1 and obj.CanCollide == false then
+            obj:Destroy()
+        end
+    end
+end
+
+local function InitializeESP()
+    -- Draw boxes for existing players
+    for i, v in pairs(Players:GetPlayers()) do
+        if v.Name ~= Player.Name then
+            coroutine.wrap(Main)(v)
+        end
+    end
+
+    -- Handle new players
+    local playerAddedConnection = Players.PlayerAdded:Connect(function(newplr)
+        if ESPEnabled then
+            coroutine.wrap(Main)(newplr)
+        end
+    end)
+    
+    ESPConnections["PlayerAdded"] = playerAddedConnection
+end
+
+-- Global functions for GUI control
+_G.DisableCornerESP = function()
+    ESPEnabled = false
+    ClearAllESP()
+end
+
+_G.EnableCornerESP = function()
+    ESPEnabled = true
+    InitializeESP()
+end
+
+_G.CleanupCornerESP = function()
+    ESPEnabled = false
+    ClearAllESP()
+end
+
+-- Initialize ESP
+InitializeESP()

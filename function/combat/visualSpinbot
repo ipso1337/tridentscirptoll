@@ -1,68 +1,176 @@
--- Simple Visual Spinbot
--- Rotates only the visual appearance of the character, not the actual hitbox
+-- True Visual Spinbot
+-- Creates only visual spinning effect using camera manipulation or visual overlays
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 
 local lplr = Players.LocalPlayer
+local camera = workspace.CurrentCamera
 local connection = nil
 local rotationAngle = 0
-local rotSpeed = 15 -- rotation speed (degrees per frame)
+local rotSpeed = 10 -- rotation speed
 
 -- Global variables for control
 _G.VisualSpinbotEnabled = false
+local originalCameraType = nil
+local originalCameraSubject = nil
 
--- Function to enable visual spinbot
-function _G.EnableVisualSpinbot()
-    _G.VisualSpinbotEnabled = true
+-- Method 1: Camera-based visual spinning (creates spinning view effect)
+local function enableCameraSpinbot()
+    if connection then
+        connection:Disconnect()
+    end
     
+    -- Store original camera settings
+    originalCameraType = camera.CameraType
+    originalCameraSubject = camera.CameraSubject
+    
+    camera.CameraType = Enum.CameraType.Scriptable
+    
+    connection = RunService.Heartbeat:Connect(function()
+        if _G.VisualSpinbotEnabled and lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = lplr.Character.HumanoidRootPart
+            local humanoid = lplr.Character:FindFirstChild("Humanoid")
+            
+            if humanoid then
+                -- Increment rotation
+                rotationAngle = rotationAngle + math.rad(rotSpeed)
+                
+                -- Calculate camera position (spinning around character)
+                local distance = 16 -- Distance from character
+                local height = 2 -- Height offset
+                
+                local x = math.sin(rotationAngle) * distance
+                local z = math.cos(rotationAngle) * distance
+                
+                local cameraPos = rootPart.Position + Vector3.new(x, height, z)
+                local lookAtPos = rootPart.Position + Vector3.new(0, height - 1, 0)
+                
+                camera.CFrame = CFrame.lookAt(cameraPos, lookAtPos)
+            end
+        end
+    end)
+end
+
+-- Method 2: UI-based visual spinning effect (overlays spinning UI elements)
+local screenGui = nil
+local spinningFrame = nil
+
+local function enableUISpinbot()
+    if screenGui then
+        screenGui:Destroy()
+    end
+    
+    -- Create spinning UI overlay
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "VisualSpinbotUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = lplr.PlayerGui
+    
+    spinningFrame = Instance.new("Frame")
+    spinningFrame.Name = "SpinFrame"
+    spinningFrame.Size = UDim2.new(0, 200, 0, 200)
+    spinningFrame.Position = UDim2.new(0.5, -100, 0.5, -100)
+    spinningFrame.BackgroundTransparency = 0.8
+    spinningFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    spinningFrame.BorderSizePixel = 0
+    spinningFrame.Parent = screenGui
+    
+    -- Add spinning effect to UI
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(1, 0)
+    uiCorner.Parent = spinningFrame
+    
+    -- Create spinning animation
     if connection then
         connection:Disconnect()
     end
     
     connection = RunService.Heartbeat:Connect(function()
-        if _G.VisualSpinbotEnabled and lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
-            local rootPart = lplr.Character.HumanoidRootPart
-            
-            -- Increment rotation angle
+        if _G.VisualSpinbotEnabled and spinningFrame then
+            rotationAngle = rotationAngle + math.rad(rotSpeed * 2)
+            spinningFrame.Rotation = math.deg(rotationAngle)
+        end
+    end)
+end
+
+-- Method 3: Clone-based visual spinning (creates spinning visual clone)
+local visualClone = nil
+local originalTransparency = {}
+
+local function enableCloneSpinbot()
+    if not lplr.Character then return end
+    
+    -- Clean up existing clone
+    if visualClone then
+        visualClone:Destroy()
+    end
+    
+    -- Create visual clone
+    visualClone = lplr.Character:Clone()
+    visualClone.Name = "VisualSpinbotClone"
+    visualClone.Parent = workspace
+    
+    -- Remove scripts and make clone purely visual
+    for _, obj in pairs(visualClone:GetDescendants()) do
+        if obj:IsA("LocalScript") or obj:IsA("Script") then
+            obj:Destroy()
+        elseif obj:IsA("BasePart") then
+            obj.CanCollide = false
+            obj.Anchored = false
+        end
+    end
+    
+    -- Make original character invisible
+    for _, part in pairs(lplr.Character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            originalTransparency[part] = part.Transparency
+            part.Transparency = 1
+        elseif part:IsA("Accessory") and part:FindFirstChild("Handle") then
+            originalTransparency[part.Handle] = part.Handle.Transparency
+            part.Handle.Transparency = 1
+        end
+    end
+    
+    -- Weld clone to original character
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = lplr.Character.HumanoidRootPart
+    weld.Part1 = visualClone.HumanoidRootPart
+    weld.Parent = visualClone.HumanoidRootPart
+    
+    -- Start spinning the clone
+    if connection then
+        connection:Disconnect()
+    end
+    
+    connection = RunService.Heartbeat:Connect(function()
+        if _G.VisualSpinbotEnabled and visualClone and visualClone.Parent then
             rotationAngle = rotationAngle + math.rad(rotSpeed)
             
-            -- Apply visual rotation to all character parts except HumanoidRootPart
-            for _, part in pairs(lplr.Character:GetChildren()) do
+            -- Only rotate the visual clone, not the original
+            for _, part in pairs(visualClone:GetChildren()) do
                 if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    -- Create or update the visual rotation
-                    if not part:GetAttribute("OriginalCFrame") then
-                        part:SetAttribute("OriginalCFrame", part.CFrame)
-                    end
-                    
-                    local originalCFrame = part:GetAttribute("OriginalCFrame")
-                    local relativeCFrame = rootPart.CFrame:ToObjectSpace(originalCFrame)
-                    local rotatedCFrame = CFrame.Angles(0, rotationAngle, 0) * relativeCFrame
-                    part.CFrame = rootPart.CFrame * rotatedCFrame
-                end
-            end
-            
-            -- Also rotate accessories
-            for _, accessory in pairs(lplr.Character:GetChildren()) do
-                if accessory:IsA("Accessory") and accessory:FindFirstChild("Handle") then
-                    local handle = accessory.Handle
-                    if not handle:GetAttribute("OriginalCFrame") then
-                        handle:SetAttribute("OriginalCFrame", handle.CFrame)
-                    end
-                    
-                    local originalCFrame = handle:GetAttribute("OriginalCFrame")
-                    local relativeCFrame = rootPart.CFrame:ToObjectSpace(originalCFrame)
-                    local rotatedCFrame = CFrame.Angles(0, rotationAngle, 0) * relativeCFrame
-                    handle.CFrame = rootPart.CFrame * rotatedCFrame
+                    local rootPart = visualClone.HumanoidRootPart
+                    local offset = part.CFrame:ToObjectSpace(rootPart.CFrame)
+                    part.CFrame = rootPart.CFrame * CFrame.Angles(0, rotationAngle, 0) * offset
                 end
             end
         end
     end)
-    
-    print("Visual Spinbot enabled!")
 end
 
--- Function to disable visual spinbot
+-- Main enable function
+function _G.EnableVisualSpinbot()
+    _G.VisualSpinbotEnabled = true
+    
+    -- Use Method 3 (Clone-based) for true visual-only effect
+    enableCloneSpinbot()
+    
+    print("True Visual Spinbot enabled! (Clone method)")
+end
+
+-- Disable function
 function _G.DisableVisualSpinbot()
     _G.VisualSpinbotEnabled = false
     
@@ -71,26 +179,33 @@ function _G.DisableVisualSpinbot()
         connection = nil
     end
     
-    -- Reset all parts to original positions
+    -- Restore original camera
+    if originalCameraType then
+        camera.CameraType = originalCameraType
+        camera.CameraSubject = originalCameraSubject
+    end
+    
+    -- Clean up UI
+    if screenGui then
+        screenGui:Destroy()
+        screenGui = nil
+    end
+    
+    -- Clean up visual clone and restore original character
+    if visualClone then
+        visualClone:Destroy()
+        visualClone = nil
+    end
+    
+    -- Restore original character visibility
     if lplr.Character then
-        for _, part in pairs(lplr.Character:GetChildren()) do
-            if part:IsA("BasePart") and part:GetAttribute("OriginalCFrame") then
-                part.CFrame = part:GetAttribute("OriginalCFrame")
-                part:SetAttribute("OriginalCFrame", nil)
-            end
-        end
-        
-        -- Reset accessories
-        for _, accessory in pairs(lplr.Character:GetChildren()) do
-            if accessory:IsA("Accessory") and accessory:FindFirstChild("Handle") then
-                local handle = accessory.Handle
-                if handle:GetAttribute("OriginalCFrame") then
-                    handle.CFrame = handle:GetAttribute("OriginalCFrame")
-                    handle:SetAttribute("OriginalCFrame", nil)
-                end
+        for part, transparency in pairs(originalTransparency) do
+            if part and part.Parent then
+                part.Transparency = transparency
             end
         end
     end
+    originalTransparency = {}
     
     rotationAngle = 0
     print("Visual Spinbot disabled!")
@@ -105,4 +220,4 @@ function _G.CleanupVisualSpinbot()
     _G.CleanupVisualSpinbot = nil
 end
 
-print("Visual Spinbot script loaded! Use _G.EnableVisualSpinbot() to start.")
+print("True Visual Spinbot loaded! This creates only visual effects without affecting hitbox.")

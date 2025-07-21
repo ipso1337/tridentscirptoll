@@ -1,3 +1,5 @@
+-- Custom Roblox Script GUI
+-- Modified from Linoria Library example
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
@@ -16,18 +18,22 @@ local Window = Library:CreateWindow({
 	ShowCustomCursor = true,
 })
 
+-- Create tabs
 local Tabs = {
 	Combat = Window:AddTab("Combat", "sword"),
 	Visual = Window:AddTab("Visual", "eye"),
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
+-- Combat Tab
 local CombatGroupBox = Tabs.Combat:AddLeftGroupbox("Combat Features", "sword")
 
+-- Variables to track loaded scripts
 local currentESP = nil
 local currentWatermark = nil
 local currentSpinbot = nil
 
+-- Visual Spinbot Toggle in Combat tab
 CombatGroupBox:AddToggle("VisualSpinbotToggle", {
 	Default = false,
 	Text = "Visual Spinbot",
@@ -37,13 +43,16 @@ CombatGroupBox:AddToggle("VisualSpinbotToggle", {
 		print("[cb] Visual Spinbot toggled:", Value)
 		
 		if Value then
+			-- Enable visual spinbot
 			if not currentSpinbot then
+				-- Load spinbot script
 				pcall(function()
 					loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/visualSpinbot"))()
 					currentSpinbot = "loaded"
 				end)
 			end
 			
+			-- Enable spinbot if function exists
 			if _G.EnableVisualSpinbot then
 				_G.EnableVisualSpinbot()
 			end
@@ -54,6 +63,7 @@ CombatGroupBox:AddToggle("VisualSpinbotToggle", {
 				Time = 2,
 			})
 		else
+			-- Disable visual spinbot
 			if _G.DisableVisualSpinbot then
 				_G.DisableVisualSpinbot()
 			end
@@ -67,86 +77,13 @@ CombatGroupBox:AddToggle("VisualSpinbotToggle", {
 	end,
 })
 
-CombatGroupBox:AddSlider("Smooth", {
-	Text = "Smooth",
-	Default = 50,
-	Min = 1,
-	Max = 100,
-	Rounding = 0,
-	Compact = false,
-
-	Callback = function(Value)
-		print("[cb] Combat Speed changed to:", Value)
-	end,
-
-	Tooltip = "Adjust combat speed (placeholder)",
-})
-
-CombatGroupBox:AddSlider("FOV", {
-	Text = "FOV",
-	Default = 1.0,
-	Min = 0.1,
-	Max = 50.0,
-	Rounding = 1,
-	Compact = false,
-
-	Callback = function(Value)
-		print("[cb] Damage Multiplier changed to:", Value)
-	end,
-
-	Tooltip = "Adjust damage multiplier (placeholder)",
-})
-
-CombatGroupBox:AddSlider("Shake", {
-	Text = "Shake",
-	Default = 10,
-	Min = 5,
-	Max = 50,
-	Rounding = 0,
-	Compact = false,
-
-	Callback = function(Value)
-		print("[cb] Attack Range changed to:", Value)
-	end,
-
-	Tooltip = "Adjust attack range (placeholder)",
-})
-
-CombatGroupBox:AddDropdown("HitPart", {
-	Values = { "Aggressive", "Defensive", "Balanced", "Stealth" },
-	Default = 3,
-	Multi = false,
-	
-	Text = "Combat Mode",
-	Tooltip = "Select combat behavior mode (placeholder)",
-	
-	Callback = function(Value)
-		print("[cb] Combat Mode changed to:", Value)
-	end,
-})
-
-CombatGroupBox:AddLabel("Combat Hotkey"):AddKeyPicker("CombatKeybind", {
-	Default = "F",
-	Mode = "Toggle",
-	Text = "Combat Toggle",
-	NoUI = false,
-
-	Callback = function(Value)
-		print("[cb] Combat keybind pressed:", Value)
-	end,
-
-	ChangedCallback = function(New)
-		print("[cb] Combat keybind changed to:", New)
-	end,
-
-	Tooltip = "Keybind for combat features (placeholder)",
-})
-
+-- Visual Tab
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
+-- Add the dropdown with none, corner, 3d options
 VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	Values = { "none", "corner", "3d" },
-	Default = 1,
+	Default = 1, -- defaults to "none"
 	Multi = false,
 	
 	Text = "View Mode",
@@ -155,7 +92,9 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	Callback = function(Value)
 		print("[cb] View Mode changed to:", Value)
 		
+		-- Handle different modes
 		if Value == "none" then
+			-- Disable any active ESP
 			if _G.DisableBoxESP then
 				_G.DisableBoxESP()
 			end
@@ -170,11 +109,14 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 			})
 			
 		elseif Value == "corner" then
+			-- Disable 3D ESP first
 			if _G.DisableBoxESP then
 				_G.DisableBoxESP()
 			end
+			-- Load corner ESP script
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Corner"))()
+				-- Enable corner ESP after loading
 				if _G.EnableCornerESP then
 					_G.EnableCornerESP()
 				end
@@ -187,11 +129,14 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 			})
 			
 		elseif Value == "3d" then
+			-- Disable corner ESP first
 			if _G.DisableCornerESP then
 				_G.DisableCornerESP()
 			end
+			-- Load 3D ESP script
 			pcall(function()
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/3D"))()
+				-- Enable the ESP after loading
 				if _G.EnableBoxESP then
 					_G.EnableBoxESP()
 				end
@@ -206,6 +151,7 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	end,
 })
 
+-- Watermark Toggle
 VisualGroupBox:AddToggle("WatermarkToggle", {
 	Default = false,
 	Text = "Show Watermark",
@@ -215,13 +161,16 @@ VisualGroupBox:AddToggle("WatermarkToggle", {
 		print("[cb] Watermark toggled:", Value)
 		
 		if Value then
+			-- Enable watermark
 			if not currentWatermark then
+				-- Load watermark script
 				pcall(function()
 					loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/Watermark"))()
 					currentWatermark = "loaded"
 				end)
 			end
 			
+			-- Enable watermark if function exists
 			if _G.EnableWatermark then
 				_G.EnableWatermark()
 			end
@@ -232,6 +181,7 @@ VisualGroupBox:AddToggle("WatermarkToggle", {
 				Time = 2,
 			})
 		else
+			-- Disable watermark
 			if _G.DisableWatermark then
 				_G.DisableWatermark()
 			end
@@ -245,13 +195,16 @@ VisualGroupBox:AddToggle("WatermarkToggle", {
 	end,
 })
 
+-- Show Health Bar Button
 VisualGroupBox:AddButton({
 	Text = "Show Health Bar",
 	Tooltip = "Loads ESP script to show player health bars",
 	
 	Func = function()
+		-- Load the ESP script from GitHub
 		loadstring(game:HttpGet("https://raw.githubusercontent.com/Eazvy/UILibs/refs/heads/main/ESP/XCT/Example"))()
 		
+		-- Show notification
 		Library:Notify({
 			Title = "ESP Loaded",
 			Description = "Health Bar ESP has been loaded successfully!",
@@ -260,6 +213,14 @@ VisualGroupBox:AddButton({
 	end,
 })
 
+-- You can access the dropdown value later with:
+-- Options.ViewModeDropdown.Value
+-- You can access the watermark toggle with:
+-- Toggles.WatermarkToggle.Value
+-- You can access the visual spinbot toggle with:
+-- Toggles.VisualSpinbotToggle.Value
+
+-- UI Settings
 local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
 
 MenuGroup:AddToggle("KeybindMenuOpen", {
@@ -307,15 +268,18 @@ MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
 })
 
 MenuGroup:AddButton("Unload", function()
+	-- Clean up any active ESP before unloading
 	if _G.CleanupBoxESP then
 		_G.CleanupBoxESP()
 	end
 	if _G.CleanupCornerESP then
 		_G.CleanupCornerESP()
 	end
+	-- Clean up watermark
 	if _G.CleanupWatermark then
 		_G.CleanupWatermark()
 	end
+	-- Clean up visual spinbot
 	if _G.CleanupVisualSpinbot then
 		_G.CleanupVisualSpinbot()
 	end
@@ -324,22 +288,27 @@ end)
 
 Library.ToggleKeybind = Options.MenuKeybind
 
+-- Library cleanup
 Library:OnUnload(function()
+	-- Clean up any active ESP
 	if _G.CleanupBoxESP then
 		_G.CleanupBoxESP()
 	end
 	if _G.CleanupCornerESP then
 		_G.CleanupCornerESP()
 	end
+	-- Clean up watermark
 	if _G.CleanupWatermark then
 		_G.CleanupWatermark()
 	end
+	-- Clean up visual spinbot
 	if _G.CleanupVisualSpinbot then
 		_G.CleanupVisualSpinbot()
 	end
 	print("Script unloaded!")
 end)
 
+-- Setup managers
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 

@@ -67,8 +67,8 @@ CombatGroupBox:AddToggle("VisualSpinbotToggle", {
 	end,
 })
 
-CombatGroupBox:AddSlider("CombatSpeed", {
-	Text = "Combat Speed",
+CombatGroupBox:AddSlider("Smooth", {
+	Text = "Smooth",
 	Default = 50,
 	Min = 1,
 	Max = 100,
@@ -82,11 +82,11 @@ CombatGroupBox:AddSlider("CombatSpeed", {
 	Tooltip = "Adjust combat speed (placeholder)",
 })
 
-CombatGroupBox:AddSlider("DamageMultiplier", {
-	Text = "Damage Multiplier",
+CombatGroupBox:AddSlider("FOV", {
+	Text = "FOV",
 	Default = 1.0,
 	Min = 0.1,
-	Max = 5.0,
+	Max = 50.0,
 	Rounding = 1,
 	Compact = false,
 
@@ -97,8 +97,8 @@ CombatGroupBox:AddSlider("DamageMultiplier", {
 	Tooltip = "Adjust damage multiplier (placeholder)",
 })
 
-CombatGroupBox:AddSlider("AttackRange", {
-	Text = "Attack Range",
+CombatGroupBox:AddSlider("Shake", {
+	Text = "Shake",
 	Default = 10,
 	Min = 5,
 	Max = 50,
@@ -112,7 +112,7 @@ CombatGroupBox:AddSlider("AttackRange", {
 	Tooltip = "Adjust attack range (placeholder)",
 })
 
-CombatGroupBox:AddDropdown("CombatModeDropdown", {
+CombatGroupBox:AddDropdown("HitPart", {
 	Values = { "Aggressive", "Defensive", "Balanced", "Stealth" },
 	Default = 3,
 	Multi = false,

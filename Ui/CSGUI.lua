@@ -138,6 +138,108 @@ CombatGroupBox:AddLabel("Aimbot Keybind"):AddKeyPicker("AimbotKeybind", {
 	end,
 })
 
+-- Hitbox Expander Section
+CombatGroupBox:AddDivider()
+CombatGroupBox:AddLabel("Hitbox Expander")
+
+CombatGroupBox:AddToggle("HitboxExpanderToggle", {
+	Default = false,
+	Text = "Enable Hitbox Expander",
+	Tooltip = "Expand player hitboxes for easier targeting",
+
+	Callback = function(Value)
+		if Value then
+			local success, err = pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/hitbox"))()
+				if _G.EnableHitboxExpander then 
+					_G.EnableHitboxExpander() 
+				end
+			end)
+			if success then
+				Library:Notify({ Title = "Hitbox Expander", Description = "Hitbox Expander enabled!", Time = 2 })
+			else
+				Library:Notify({ Title = "Hitbox Expander", Description = "Failed to load hitbox expander: " .. tostring(err), Time = 3 })
+			end
+		else
+			if _G.DisableHitboxExpander then 
+				_G.DisableHitboxExpander() 
+			end
+			Library:Notify({ Title = "Hitbox Expander", Description = "Hitbox Expander disabled", Time = 2 })
+		end
+	end,
+})
+
+CombatGroupBox:AddSlider("HitboxSizeX", {
+	Text = "Hitbox Size X",
+	Default = 10,
+	Min = 1,
+	Max = 50,
+	Rounding = 1,
+	Callback = function(Value)
+		if _G.SetHitboxSize then 
+			local currentY = Options.HitboxSizeY and Options.HitboxSizeY.Value or 10
+			local currentZ = Options.HitboxSizeZ and Options.HitboxSizeZ.Value or 10
+			_G.SetHitboxSize(Value, currentY, currentZ) 
+		end
+	end,
+})
+
+CombatGroupBox:AddSlider("HitboxSizeY", {
+	Text = "Hitbox Size Y",
+	Default = 10,
+	Min = 1,
+	Max = 50,
+	Rounding = 1,
+	Callback = function(Value)
+		if _G.SetHitboxSize then 
+			local currentX = Options.HitboxSizeX and Options.HitboxSizeX.Value or 10
+			local currentZ = Options.HitboxSizeZ and Options.HitboxSizeZ.Value or 10
+			_G.SetHitboxSize(currentX, Value, currentZ) 
+		end
+	end,
+})
+
+CombatGroupBox:AddSlider("HitboxSizeZ", {
+	Text = "Hitbox Size Z",
+	Default = 10,
+	Min = 1,
+	Max = 50,
+	Rounding = 1,
+	Callback = function(Value)
+		if _G.SetHitboxSize then 
+			local currentX = Options.HitboxSizeX and Options.HitboxSizeX.Value or 10
+			local currentY = Options.HitboxSizeY and Options.HitboxSizeY.Value or 10
+			_G.SetHitboxSize(currentX, currentY, Value) 
+		end
+	end,
+})
+
+CombatGroupBox:AddSlider("HitboxTransparency", {
+	Text = "Hitbox Transparency",
+	Default = 50,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Callback = function(Value)
+		if _G.SetHitboxTransparency then 
+			_G.SetHitboxTransparency(Value / 100) -- Convert percentage to decimal
+		end
+	end,
+})
+
+CombatGroupBox:AddDropdown("HitboxTargetPart", {
+	Values = { "Head", "Torso", "LowerTorso", "HumanoidRootPart" },
+	Default = 1,
+	Multi = false,
+	Text = "Target Part",
+	Tooltip = "Select which body part to expand",
+	Callback = function(Value)
+		if _G.SetHitboxTargetPart then 
+			_G.SetHitboxTargetPart(Value) 
+		end
+	end,
+})
+
 -- Visuals
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
@@ -321,7 +423,8 @@ MenuGroup:AddButton({
 			"CleanupSkeletonESP",
 			"CleanupWatermark",
 			"CleanupVisualSpinbot",
-			"CleanupAimbot"
+			"CleanupAimbot",
+			"CleanupHitboxExpander"  -- Added hitbox expander cleanup
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -344,7 +447,8 @@ Library:OnUnload(function()
 		"CleanupSkeletonESP",
 		"CleanupWatermark",
 		"CleanupVisualSpinbot",
-		"CleanupAimbot"
+		"CleanupAimbot",
+		"CleanupHitboxExpander"  -- Added hitbox expander cleanup
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

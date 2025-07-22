@@ -1,436 +1,417 @@
--- Улучшенный Skeleton ESP с Circle Head (по логике первого скрипта)
--- Сервисы
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
+-- Improved Skeleton ESP Script with better architecture
+-- Based on the logic from the second script
 
--- Переменные
-local Camera = Workspace.CurrentCamera
+-- Required dependencies and services
+local workspace = cloneref and cloneref(game:GetService("Workspace")) or game:GetService("Workspace")
+local Players = cloneref and cloneref(game:GetService("Players")) or game:GetService("Players")
+local RunService = cloneref and cloneref(game:GetService("RunService")) or game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local LoadedPlayers = {}
+local Camera = workspace.CurrentCamera
 
--- Настройки
-local Settings = {
-    enabled = true, -- Включение ESP
-    skeleton_color = Color3.fromRGB(255, 255, 255), -- Белый цвет линий
-    skeleton_thickness = 2, -- Толщина линий
-    head_size = 8, -- Размер головы
-    team_check = false, -- Проверка команды
-    team_color = false, -- Использовать цвет команды
-    auto_thickness = true, -- Автоматическая толщина в зависимости от расстояния
-    distancelimit = false, -- Ограничение по расстоянию
-    maxdistance = 200, -- Максимальное расстояние для ESP
-    health_check = true -- Показывать ESP только для живых игроков
+-- Main cheat table
+local SkeletonESP = {
+    connections = {
+        renderstepped = {}
+    },
+    drawings = {},
+    loaded_players = {},
+    __loaded = false
 }
 
--- Вспомогательные функции
-local function worldToScreen(world)
-    local screen, inBounds = Camera:WorldToViewportPoint(world)
-    return Vector2.new(screen.X, screen.Y), inBounds, screen.Z
+-- Settings
+SkeletonESP.settings = {
+    skeleton_enabled = true,
+    skeleton_color = Color3.fromRGB(255, 255, 255),
+    skeleton_transparency = 1,
+    skeleton_thickness = 2,
+    head_size = 8,
+    team_check = false,
+    team_color = false,
+    autothickness = true,
+    distance_limit = false,
+    max_distance = 200
+}
+
+-- Utility functions
+SkeletonESP.utility = {}
+
+SkeletonESP.utility.new_renderstepped = function(func)
+    local obj = {}
+    SkeletonESP.connections.renderstepped[func] = func
+    function obj:Disconnect()
+        if func then
+            SkeletonESP.connections.renderstepped[func] = nil
+            func = nil
+        end
+    end
+    return obj
 end
 
-local function NewLine(color, thickness)
-    local line = Drawing.new("Line")
-    line.Visible = false
-    line.From = Vector2.new(0, 0)
-    line.To = Vector2.new(0, 0)
-    line.Color = color
-    line.Transparency = 1
-    line.Thickness = thickness
-    return line
+SkeletonESP.utility.new_drawing = function(drawobj, args)
+    local obj = Drawing.new(drawobj)
+    for i, v in pairs(args or {}) do
+        obj[i] = v
+    end
+    SkeletonESP.drawings[obj] = obj
+    return obj
 end
 
-local function NewCircle(color, thickness, radius)
-    local circle = Drawing.new("Circle")
-    circle.Visible = false
-    circle.Position = Vector2.new(0, 0)
-    circle.Color = color
-    circle.Thickness = thickness
-    circle.Radius = radius
-    circle.Filled = false
-    circle.Transparency = 1
-    return circle
+-- Initialize render connection
+local render_connection = RunService.RenderStepped:Connect(function(delta)
+    for _, func in pairs(SkeletonESP.connections.renderstepped) do
+        pcall(func, delta)
+    end
+end)
+
+-- Skeleton bone structure for R15 and R6
+local skeleton_bones = {
+    R15 = {
+        ["Head"] = "UpperTorso",
+        ["UpperTorso"] = "LowerTorso",
+        ["LeftUpperArm"] = "UpperTorso",
+        ["LeftLowerArm"] = "LeftUpperArm", 
+        ["LeftHand"] = "LeftLowerArm",
+        ["RightUpperArm"] = "UpperTorso",
+        ["RightLowerArm"] = "RightUpperArm",
+        ["RightHand"] = "RightLowerArm",
+        ["LeftUpperLeg"] = "LowerTorso",
+        ["LeftLowerLeg"] = "LeftUpperLeg",
+        ["LeftFoot"] = "LeftLowerLeg",
+        ["RightUpperLeg"] = "LowerTorso",
+        ["RightLowerLeg"] = "RightUpperLeg",
+        ["RightFoot"] = "RightLowerLeg"
+    },
+    R6 = {
+        ["Head"] = "Torso",
+        ["Left Arm"] = "Torso",
+        ["Right Arm"] = "Torso",
+        ["Left Leg"] = "Torso",
+        ["Right Leg"] = "Torso"
+    }
+}
+
+-- Helper functions
+local function hasCharacter(player)
+    return player and player.Character and 
+           player.Character:FindFirstChild("HumanoidRootPart") and 
+           player.Character:FindFirstChild("Humanoid") and
+           player ~= LocalPlayer
 end
 
--- Функция для получения позиций R15 костей
-local function getR15SkeletonPoints(character)
-    local parts = {
-        Head = character:FindFirstChild("Head"),
-        UpperTorso = character:FindFirstChild("UpperTorso"),
-        LowerTorso = character:FindFirstChild("LowerTorso"),
-        LeftUpperArm = character:FindFirstChild("LeftUpperArm"),
-        LeftLowerArm = character:FindFirstChild("LeftLowerArm"),
-        LeftHand = character:FindFirstChild("LeftHand"),
-        RightUpperArm = character:FindFirstChild("RightUpperArm"),
-        RightLowerArm = character:FindFirstChild("RightLowerArm"),
-        RightHand = character:FindFirstChild("RightHand"),
-        LeftUpperLeg = character:FindFirstChild("LeftUpperLeg"),
-        LeftLowerLeg = character:FindFirstChild("LeftLowerLeg"),
-        LeftFoot = character:FindFirstChild("LeftFoot"),
-        RightUpperLeg = character:FindFirstChild("RightUpperLeg"),
-        RightLowerLeg = character:FindFirstChild("RightLowerLeg"),
-        RightFoot = character:FindFirstChild("RightFoot")
+local function worldToScreen(position)
+    local screen, onScreen = Camera:WorldToViewportPoint(position)
+    return Vector2.new(screen.X, screen.Y), onScreen, screen.Z
+end
+
+local function getPlayerColor(player)
+    local color = SkeletonESP.settings.skeleton_color
+    
+    if SkeletonESP.settings.team_check and LocalPlayer.Team then
+        if player.Team == LocalPlayer.Team then
+            color = Color3.fromRGB(0, 255, 0) -- Green for teammates
+        else
+            color = Color3.fromRGB(255, 0, 0) -- Red for enemies
+        end
+    elseif SkeletonESP.settings.team_color and player.Team then
+        color = player.TeamColor.Color
+    end
+    
+    return color
+end
+
+local function calculateThickness(distance)
+    if SkeletonESP.settings.autothickness then
+        return math.clamp(1/distance*100, 1, 4)
+    end
+    return SkeletonESP.settings.skeleton_thickness
+end
+
+-- Main ESP creation function
+local function createPlayerESP(player)
+    if not hasCharacter(player) then return end
+    
+    local character = player.Character
+    local humanoid = character:FindFirstChild("Humanoid")
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not humanoidRootPart then return end
+    
+    -- Determine rig type
+    local isR15 = humanoid.RigType == Enum.HumanoidRigType.R15
+    local bones = isR15 and skeleton_bones.R15 or skeleton_bones.R6
+    
+    -- Create ESP object for player
+    local playerESP = {
+        player = player,
+        character = character,
+        drawings = {},
+        connection = nil,
+        isR15 = isR15
     }
     
-    -- Проверяем наличие всех необходимых частей
-    for name, part in pairs(parts) do
-        if not part or not part:IsA("BasePart") then
-            return nil
+    -- Create drawing objects for skeleton
+    for boneName, _ in pairs(bones) do
+        playerESP.drawings["line_" .. boneName] = SkeletonESP.utility.new_drawing("Line", {
+            Visible = false,
+            Color = SkeletonESP.settings.skeleton_color,
+            Thickness = SkeletonESP.settings.skeleton_thickness,
+            Transparency = SkeletonESP.settings.skeleton_transparency
+        })
+    end
+    
+    -- Create head circle
+    playerESP.drawings.head_circle = SkeletonESP.utility.new_drawing("Circle", {
+        Visible = false,
+        Color = SkeletonESP.settings.skeleton_color,
+        Thickness = SkeletonESP.settings.skeleton_thickness,
+        Radius = SkeletonESP.settings.head_size,
+        Filled = false,
+        Transparency = SkeletonESP.settings.skeleton_transparency
+    })
+    
+    -- Update function for this player
+    function playerESP:update()
+        if not hasCharacter(self.player) then
+            return self:setVisible(false)
+        end
+        
+        local character = self.player.Character
+        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+        local humanoid = character:FindFirstChild("Humanoid")
+        
+        if not humanoidRootPart or not humanoid or humanoid.Health <= 0 then
+            return self:setVisible(false)
+        end
+        
+        -- Distance check
+        local distance = (Camera.CFrame.Position - humanoidRootPart.Position).Magnitude
+        if SkeletonESP.settings.distance_limit and distance > SkeletonESP.settings.max_distance then
+            return self:setVisible(false)
+        end
+        
+        -- Screen position check
+        local _, onScreen = worldToScreen(humanoidRootPart.Position)
+        if not onScreen then
+            return self:setVisible(false)
+        end
+        
+        self:setVisible(true)
+        
+        -- Update colors and thickness
+        local color = getPlayerColor(self.player)
+        local thickness = calculateThickness(distance)
+        
+        -- Draw skeleton
+        if SkeletonESP.settings.skeleton_enabled then
+            self:drawSkeleton(character, color, thickness)
         end
     end
     
-    return parts
-end
-
--- Функция для получения позиций R6 костей
-local function getR6SkeletonPoints(character)
-    local parts = {
-        Head = character:FindFirstChild("Head"),
-        Torso = character:FindFirstChild("Torso"),
-        LeftArm = character:FindFirstChild("Left Arm"),
-        RightArm = character:FindFirstChild("Right Arm"),
-        LeftLeg = character:FindFirstChild("Left Leg"),
-        RightLeg = character:FindFirstChild("Right Leg")
-    }
-    
-    -- Проверяем наличие всех необходимых частей
-    for name, part in pairs(parts) do
-        if not part or not part:IsA("BasePart") then
-            return nil
+    function playerESP:drawSkeleton(character, color, thickness)
+        local bones = self.isR15 and skeleton_bones.R15 or skeleton_bones.R6
+        
+        -- Update head circle
+        local head = character:FindFirstChild("Head")
+        if head then
+            local headPos, headOnScreen = worldToScreen(head.Position)
+            if headOnScreen then
+                self.drawings.head_circle.Position = headPos
+                self.drawings.head_circle.Color = color
+                self.drawings.head_circle.Thickness = thickness
+                self.drawings.head_circle.Visible = true
+            end
+        end
+        
+        -- Draw skeleton lines
+        for boneName, parentName in pairs(bones) do
+            local bone = character:FindFirstChild(boneName)
+            local parentBone = character:FindFirstChild(parentName)
+            local lineObj = self.drawings["line_" .. boneName]
+            
+            if bone and parentBone and lineObj then
+                local bonePos, boneOnScreen = worldToScreen(bone.Position)
+                local parentPos, parentOnScreen = worldToScreen(parentBone.Position)
+                
+                if boneOnScreen and parentOnScreen then
+                    lineObj.From = bonePos
+                    lineObj.To = parentPos
+                    lineObj.Color = color
+                    lineObj.Thickness = thickness
+                    lineObj.Visible = true
+                else
+                    lineObj.Visible = false
+                end
+            elseif lineObj then
+                lineObj.Visible = false
+            end
+        end
+        
+        -- Special handling for R6 limb connections
+        if not self.isR15 then
+            self:drawR6LimbConnections(character, color, thickness)
         end
     end
     
-    return parts
-end
-
--- Функция для рисования R15 скелета
-local function drawR15Skeleton(parts, skeleton_color, thickness, lines, circles)
-    -- Позиции частей тела
-    local positions = {}
-    for name, part in pairs(parts) do
-        local pos, onScreen = worldToScreen(part.Position)
-        if not onScreen then return false end
-        positions[name] = pos
-    end
-    
-    -- Круг для головы
-    local headCircle = NewCircle(skeleton_color, thickness, Settings.head_size)
-    headCircle.Position = positions.Head
-    headCircle.Visible = true
-    table.insert(circles, headCircle)
-    
-    -- Соединения костей R15
-    local connections = {
-        {from = "Head", to = "UpperTorso"},
-        {from = "UpperTorso", to = "LowerTorso"},
-        {from = "UpperTorso", to = "LeftUpperArm"},
-        {from = "LeftUpperArm", to = "LeftLowerArm"},
-        {from = "LeftLowerArm", to = "LeftHand"},
-        {from = "UpperTorso", to = "RightUpperArm"},
-        {from = "RightUpperArm", to = "RightLowerArm"},
-        {from = "RightLowerArm", to = "RightHand"},
-        {from = "LowerTorso", to = "LeftUpperLeg"},
-        {from = "LeftUpperLeg", to = "LeftLowerLeg"},
-        {from = "LeftLowerLeg", to = "LeftFoot"},
-        {from = "LowerTorso", to = "RightUpperLeg"},
-        {from = "RightUpperLeg", to = "RightLowerLeg"},
-        {from = "RightLowerLeg", to = "RightFoot"}
-    }
-    
-    -- Рисуем линии
-    for _, conn in ipairs(connections) do
-        if positions[conn.from] and positions[conn.to] then
-            local line = NewLine(skeleton_color, thickness)
-            line.From = positions[conn.from]
-            line.To = positions[conn.to]
-            line.Visible = true
-            table.insert(lines, line)
+    function playerESP:drawR6LimbConnections(character, color, thickness)
+        local torso = character:FindFirstChild("Torso")
+        if not torso then return end
+        
+        local limbs = {"Left Arm", "Right Arm", "Left Leg", "Right Leg"}
+        for _, limbName in pairs(limbs) do
+            local limb = character:FindFirstChild(limbName)
+            local lineObj = self.drawings["line_" .. limbName]
+            
+            if limb and lineObj then
+                -- Calculate limb endpoints for R6
+                local limbHeight = limb.Size.Y / 2 - 0.2
+                local upperPos = worldToScreen((limb.CFrame * CFrame.new(0, limbHeight, 0)).Position)
+                local lowerPos = worldToScreen((limb.CFrame * CFrame.new(0, -limbHeight, 0)).Position)
+                
+                lineObj.From = upperPos
+                lineObj.To = lowerPos
+                lineObj.Color = color
+                lineObj.Thickness = thickness
+                lineObj.Visible = true
+            end
         end
     end
     
-    return true
-end
-
--- Функция для рисования R6 скелета
-local function drawR6Skeleton(parts, skeleton_color, thickness, lines, circles)
-    -- Вычисляем позиции для R6
-    local positions = {}
-    
-    -- Голова
-    local headPos, headOnScreen = worldToScreen(parts.Head.Position)
-    if not headOnScreen then return false end
-    positions.Head = headPos
-    
-    -- Торс
-    local t_height = parts.Torso.Size.Y/2 - 0.2
-    local upperTorsoPos, utOnScreen = worldToScreen((parts.Torso.CFrame * CFrame.new(0, t_height, 0)).Position)
-    local lowerTorsoPos, ltOnScreen = worldToScreen((parts.Torso.CFrame * CFrame.new(0, -t_height, 0)).Position)
-    if not utOnScreen or not ltOnScreen then return false end
-    positions.UpperTorso = upperTorsoPos
-    positions.LowerTorso = lowerTorsoPos
-    
-    -- Левая рука
-    local la_height = parts.LeftArm.Size.Y/2 - 0.2
-    local leftUpperArmPos, luaOnScreen = worldToScreen((parts.LeftArm.CFrame * CFrame.new(0, la_height, 0)).Position)
-    local leftLowerArmPos, llaOnScreen = worldToScreen((parts.LeftArm.CFrame * CFrame.new(0, -la_height, 0)).Position)
-    if not luaOnScreen or not llaOnScreen then return false end
-    positions.LeftUpperArm = leftUpperArmPos
-    positions.LeftLowerArm = leftLowerArmPos
-    
-    -- Правая рука
-    local ra_height = parts.RightArm.Size.Y/2 - 0.2
-    local rightUpperArmPos, ruaOnScreen = worldToScreen((parts.RightArm.CFrame * CFrame.new(0, ra_height, 0)).Position)
-    local rightLowerArmPos, rlaOnScreen = worldToScreen((parts.RightArm.CFrame * CFrame.new(0, -ra_height, 0)).Position)
-    if not ruaOnScreen or not rlaOnScreen then return false end
-    positions.RightUpperArm = rightUpperArmPos
-    positions.RightLowerArm = rightLowerArmPos
-    
-    -- Левая нога
-    local ll_height = parts.LeftLeg.Size.Y/2 - 0.2
-    local leftUpperLegPos, lulOnScreen = worldToScreen((parts.LeftLeg.CFrame * CFrame.new(0, ll_height, 0)).Position)
-    local leftLowerLegPos, lllOnScreen = worldToScreen((parts.LeftLeg.CFrame * CFrame.new(0, -ll_height, 0)).Position)
-    if not lulOnScreen or not lllOnScreen then return false end
-    positions.LeftUpperLeg = leftUpperLegPos
-    positions.LeftLowerLeg = leftLowerLegPos
-    
-    -- Правая нога
-    local rl_height = parts.RightLeg.Size.Y/2 - 0.2
-    local rightUpperLegPos, rulOnScreen = worldToScreen((parts.RightLeg.CFrame * CFrame.new(0, rl_height, 0)).Position)
-    local rightLowerLegPos, rllOnScreen = worldToScreen((parts.RightLeg.CFrame * CFrame.new(0, -rl_height, 0)).Position)
-    if not rulOnScreen or not rllOnScreen then return false end
-    positions.RightUpperLeg = rightUpperLegPos
-    positions.RightLowerLeg = rightLowerLegPos
-    
-    -- Круг для головы
-    local headCircle = NewCircle(skeleton_color, thickness, Settings.head_size)
-    headCircle.Position = positions.Head
-    headCircle.Visible = true
-    table.insert(circles, headCircle)
-    
-    -- Соединения костей R6
-    local connections = {
-        {from = "Head", to = "UpperTorso"},
-        {from = "UpperTorso", to = "LowerTorso"},
-        {from = "UpperTorso", to = "LeftUpperArm"},
-        {from = "LeftUpperArm", to = "LeftLowerArm"},
-        {from = "UpperTorso", to = "RightUpperArm"},
-        {from = "RightUpperArm", to = "RightLowerArm"},
-        {from = "LowerTorso", to = "LeftUpperLeg"},
-        {from = "LeftUpperLeg", to = "LeftLowerLeg"},
-        {from = "LowerTorso", to = "RightUpperLeg"},
-        {from = "RightUpperLeg", to = "RightLowerLeg"}
-    }
-    
-    -- Рисуем линии
-    for _, conn in ipairs(connections) do
-        if positions[conn.from] and positions[conn.to] then
-            local line = NewLine(skeleton_color, thickness)
-            line.From = positions[conn.from]
-            line.To = positions[conn.to]
-            line.Visible = true
-            table.insert(lines, line)
+    function playerESP:setVisible(visible)
+        for _, drawing in pairs(self.drawings) do
+            drawing.Visible = visible
         end
     end
     
-    return true
+    function playerESP:destroy()
+        if self.connection then
+            self.connection:Disconnect()
+        end
+        for _, drawing in pairs(self.drawings) do
+            drawing:Remove()
+        end
+        SkeletonESP.loaded_players[self.player] = nil
+    end
+    
+    -- Start update loop for this player
+    playerESP.connection = SkeletonESP.utility.new_renderstepped(function()
+        playerESP:update()
+    end)
+    
+    SkeletonESP.loaded_players[player] = playerESP
 end
 
--- Логика ESP
-local function create_esp(player)
-    if player == LocalPlayer or not player.Character or not player.Character:FindFirstChild("Head") or not player.Character:FindFirstChild("HumanoidRootPart") then
+-- Destroy player ESP
+local function destroyPlayerESP(player)
+    local playerESP = SkeletonESP.loaded_players[player]
+    if playerESP then
+        playerESP:destroy()
+    end
+end
+
+-- Main ESP functions
+function SkeletonESP.load()
+    if SkeletonESP.__loaded then
+        warn("[SkeletonESP] Already loaded!")
         return
     end
-
-    LoadedPlayers[player] = {
-        lines = {},
-        circles = {},
-        connection = nil
-    }
-    local plr_data = LoadedPlayers[player]
-    local character = player.Character
-    local head = character:FindFirstChild("Head")
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character:FindFirstChild("Humanoid")
-
-    plr_data.connection = RunService.RenderStepped:Connect(function()
-        if not (Settings.enabled and head and hrp and character and character.Parent and (not Settings.health_check or (humanoid and humanoid.Health > 0))) then
-            for _, line in ipairs(plr_data.lines) do
-                line.Visible = false
-            end
-            for _, circle in ipairs(plr_data.circles) do
-                circle.Visible = false
-            end
-            return
-        end
-
-        local _, onScreen = worldToScreen(head.Position)
-        if not onScreen then
-            for _, line in ipairs(plr_data.lines) do
-                line.Visible = false
-            end
-            for _, circle in ipairs(plr_data.circles) do
-                circle.Visible = false
-            end
-            return
-        end
-
-        if Settings.distancelimit and (Camera.CFrame.Position - head.Position).Magnitude > Settings.maxdistance then
-            for _, line in ipairs(plr_data.lines) do
-                line.Visible = false
-            end
-            for _, circle in ipairs(plr_data.circles) do
-                circle.Visible = false
-            end
-            return
-        end
-
-        if Settings.team_check and player.Team == LocalPlayer.Team then
-            for _, line in ipairs(plr_data.lines) do
-                line.Visible = false
-            end
-            for _, circle in ipairs(plr_data.circles) do
-                circle.Visible = false
-            end
-            return
-        end
-
-        -- Расчёт толщины линий
-        local distance = (Camera.CFrame.Position - head.Position).Magnitude
-        local thickness = Settings.skeleton_thickness
-        if Settings.auto_thickness then
-            thickness = math.clamp(1 / distance * 100, 1, 4)
-        end
-
-        -- Определение цвета
-        local skeleton_color = Settings.skeleton_color
-        if Settings.team_color and player.Team then
-            skeleton_color = player.TeamColor.Color
-        elseif Settings.team_check and player.Team ~= LocalPlayer.Team then
-            skeleton_color = Color3.fromRGB(255, 0, 0) -- Красный для врагов
-        elseif Settings.team_check and player.Team == LocalPlayer.Team then
-            skeleton_color = Color3.fromRGB(0, 255, 0) -- Зелёный для союзников
-        end
-
-        -- Очистка старых линий и кругов
-        for _, line in ipairs(plr_data.lines) do
-            line:Remove()
-        end
-        for _, circle in ipairs(plr_data.circles) do
-            circle:Remove()
-        end
-        plr_data.lines = {}
-        plr_data.circles = {}
-
-        -- Определение типа рига и рисование скелета
-        local isR15 = humanoid and humanoid.RigType == Enum.HumanoidRigType.R15
-        local success = false
-        
-        if isR15 then
-            local r15Parts = getR15SkeletonPoints(character)
-            if r15Parts then
-                success = drawR15Skeleton(r15Parts, skeleton_color, thickness, plr_data.lines, plr_data.circles)
-            end
-        else
-            local r6Parts = getR6SkeletonPoints(character)
-            if r6Parts then
-                success = drawR6Skeleton(r6Parts, skeleton_color, thickness, plr_data.lines, plr_data.circles)
-            end
-        end
-        
-        -- Если не удалось нарисовать скелет, скрываем все элементы
-        if not success then
-            for _, line in ipairs(plr_data.lines) do
-                line.Visible = false
-            end
-            for _, circle in ipairs(plr_data.circles) do
-                circle.Visible = false
-            end
-        end
-    end)
-end
-
-local function destroy_esp(player)
-    local plr_data = LoadedPlayers[player]
-    if not plr_data then return end
-    if plr_data.connection then
-        plr_data.connection:Disconnect()
-    end
-    for _, line in ipairs(plr_data.lines) do
-        if line then
-            line:Remove()
+    
+    -- Create ESP for existing players
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            createPlayerESP(player)
         end
     end
-    for _, circle in ipairs(plr_data.circles) do
-        if circle then
-            circle:Remove()
-        end
-    end
-    LoadedPlayers[player] = nil
-end
-
--- Инициализация ESP для текущих игроков
-for _, player in ipairs(Players:GetPlayers()) do
-    create_esp(player)
-end
-
--- Обработка добавления и удаления игроков
-Players.PlayerAdded:Connect(create_esp)
-Players.PlayerRemoving:Connect(destroy_esp)
-
--- Глобальные функции для включения/выключения ESP
-_G.EnableSkeletonESP = function()
-    Settings.enabled = true
-end
-
-_G.DisableSkeletonESP = function()
-    Settings.enabled = false
-    for _, plr_data in pairs(LoadedPlayers) do
-        for _, line in ipairs(plr_data.lines) do
-            if line then
-                line.Visible = false
-            end
-        end
-        for _, circle in ipairs(plr_data.circles) do
-            if circle then
-                circle.Visible = false
-            end
-        end
-    end
-end
-
-_G.CleanupSkeletonESP = function()
-    local players_to_clean = {}
-    for player, _ in pairs(LoadedPlayers) do
-        table.insert(players_to_clean, player)
-    end
-    for _, player in ipairs(players_to_clean) do
-        destroy_esp(player)
-    end
-end
-
--- Автоматическая очистка при респавне игроков
-Players.PlayerRemoving:Connect(destroy_esp)
-
--- Обработка респавна персонажей
-local function onCharacterAdded(player, character)
-    if LoadedPlayers[player] then
-        destroy_esp(player)
-    end
-    wait(0.1) -- Небольшая задержка для полной загрузки персонажа
-    create_esp(player)
-end
-
--- Подключение обработчика респавна для всех игроков
-for _, player in ipairs(Players:GetPlayers()) do
-    if player.Character then
-        player.CharacterAdded:Connect(function(character)
-            onCharacterAdded(player, character)
+    
+    -- Handle new players
+    SkeletonESP.playerAdded = Players.PlayerAdded:Connect(function(player)
+        player.CharacterAdded:Connect(function()
+            task.wait(0.1) -- Small delay to ensure character is fully loaded
+            createPlayerESP(player)
         end)
+        
+        if player.Character then
+            createPlayerESP(player)
+        end
+    end)
+    
+    -- Handle player removal
+    SkeletonESP.playerRemoving = Players.PlayerRemoving:Connect(function(player)
+        destroyPlayerESP(player)
+    end)
+    
+    -- Handle character respawning for existing players
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            player.CharacterAdded:Connect(function()
+                task.wait(0.1)
+                createPlayerESP(player)
+            end)
+            
+            player.CharacterRemoving:Connect(function()
+                destroyPlayerESP(player)
+            end)
+        end
+    end
+    
+    SkeletonESP.__loaded = true
+    print("[SkeletonESP] Loaded successfully!")
+end
+
+function SkeletonESP.unload()
+    if not SkeletonESP.__loaded then
+        warn("[SkeletonESP] Not loaded yet!")
+        return
+    end
+    
+    -- Disconnect connections
+    if SkeletonESP.playerAdded then
+        SkeletonESP.playerAdded:Disconnect()
+    end
+    if SkeletonESP.playerRemoving then
+        SkeletonESP.playerRemoving:Disconnect()
+    end
+    if render_connection then
+        render_connection:Disconnect()
+    end
+    
+    -- Clear all render connections
+    for func, _ in pairs(SkeletonESP.connections.renderstepped) do
+        SkeletonESP.connections.renderstepped[func] = nil
+    end
+    
+    -- Destroy all player ESP
+    for player, _ in pairs(SkeletonESP.loaded_players) do
+        destroyPlayerESP(player)
+    end
+    
+    -- Remove all drawings
+    for drawing, _ in pairs(SkeletonESP.drawings) do
+        drawing:Remove()
+        SkeletonESP.drawings[drawing] = nil
+    end
+    
+    SkeletonESP.__loaded = false
+    print("[SkeletonESP] Unloaded successfully!")
+end
+
+-- Update all players (refresh settings)
+function SkeletonESP.updateAll()
+    for _, playerESP in pairs(SkeletonESP.loaded_players) do
+        -- Force update will happen automatically on next render frame
     end
 end
 
-Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function(character)
-        onCharacterAdded(player, character)
-    end)
-end)
+-- Global functions for compatibility
+_G.SkeletonESP = SkeletonESP
+_G.EnableSkeletonESP = function()
+    SkeletonESP.settings.skeleton_enabled = true
+end
+_G.DisableSkeletonESP = function()
+    SkeletonESP.settings.skeleton_enabled = false
+end
+_G.CleanupSkeletonESP = SkeletonESP.unload
+
+-- Auto-load
+SkeletonESP.load()
+
+return SkeletonESP

@@ -1,4 +1,3 @@
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -14,9 +13,10 @@ local nametags_settings = {
     team_color = false, -- Use team colors
     maxdistance = 200, -- Maximum distance for nametags rendering
     distancelimit = false, -- Disable distance limit
-    text_size = 16, -- Base text size
+    text_size = 20, -- Base text size (увеличен с 16 до 20)
     show_distance = true, -- Show distance in brackets
     show_health = true, -- Show health bar
+    show_weapon = true, -- Show weapon name
     outline = true -- Text outline
 }
 
@@ -38,6 +38,13 @@ local function sleepCheck(player)
     return false
 end
 
+local function getToolName(handModel)
+    if handModel and handModel:GetAttribute("name") then
+        return tostring(handModel:GetAttribute("name"))
+    end
+    return "None"
+end
+
 local function createTextLabel(text, color, size)
     local label = Drawing.new("Text")
     label.Visible = false
@@ -46,7 +53,7 @@ local function createTextLabel(text, color, size)
     label.Size = size
     label.Center = true
     label.Outline = nametags_settings.outline
-    label.Font = Drawing.Fonts.UI -- Изменен шрифт на UI
+    label.Font = Drawing.Fonts.UI
     label.Transparency = 1 - nametags_settings.transparency
     return label
 end
@@ -96,6 +103,7 @@ local function create_nametags(model)
         player = player,
         obj = {
             nameLabel = createTextLabel("Player", nametags_settings.color, nametags_settings.text_size),
+            weaponLabel = createTextLabel("None", nametags_settings.color, nametags_settings.text_size - 4),
             healthBar = createHealthBar()
         },
         connection = nil
@@ -107,10 +115,11 @@ local function create_nametags(model)
     local head = model:FindFirstChild("Head")
     local lowertorso = model:FindFirstChild("LowerTorso")
     local humanoid = model:FindFirstChild("Humanoid")
-
+    
     plr_data.connection = RunService.RenderStepped:Connect(function()
         if not (nametags_settings.enabled and head and character and character.Parent) then
             obj.nameLabel.Visible = false
+            obj.weaponLabel.Visible = false
             obj.healthBar.background.Visible = false
             obj.healthBar.foreground.Visible = false
             return
@@ -119,88 +128,109 @@ local function create_nametags(model)
         -- Check if character is alive
         if humanoid and humanoid.Health <= 0 then
             obj.nameLabel.Visible = false
+            obj.weaponLabel.Visible = false
             obj.healthBar.background.Visible = false
             obj.healthBar.foreground.Visible = false
             return
         end
-
+        
         -- Sleep check
         if nametags_settings.sleep_check and sleepCheck(character) then
             obj.nameLabel.Visible = false
+            obj.weaponLabel.Visible = false
             obj.healthBar.background.Visible = false
             obj.healthBar.foreground.Visible = false
             return
         end
-
-        local screenPos, onScreen = worldToScreen(head.Position + Vector3.new(0, 1, 0))
+        
+        local screenPos, onScreen = worldToScreen(head.Position + Vector3.new(0, 1.5, 0)) -- Поднят выше (было 1, стало 1.5)
         if not onScreen then
             obj.nameLabel.Visible = false
+            obj.weaponLabel.Visible = false
             obj.healthBar.background.Visible = false
             obj.healthBar.foreground.Visible = false
             return
         end
-
+        
         -- Distance check
         local distance = (Camera.CFrame.Position - head.Position).Magnitude
         if nametags_settings.distancelimit and distance > nametags_settings.maxdistance then
             obj.nameLabel.Visible = false
+            obj.weaponLabel.Visible = false
             obj.healthBar.background.Visible = false
             obj.healthBar.foreground.Visible = false
             return
         end
-
+        
         -- Team check
         if nametags_settings.teamcheck and plr_data.player and Players.LocalPlayer then
             if plr_data.player.Team == Players.LocalPlayer.Team then
                 obj.nameLabel.Visible = false
+                obj.weaponLabel.Visible = false
                 obj.healthBar.background.Visible = false
                 obj.healthBar.foreground.Visible = false
                 return
             end
         end
-
+        
         -- Get player name
         local playerName = "Player"
         if head:FindFirstChild("Nametag") and head.Nametag:FindFirstChild("tag") and head.Nametag.tag.Text ~= "" then
             playerName = head.Nametag.tag.Text
         end
-
+        
         -- Determine color
         local textColor = nametags_settings.color
         if nametags_settings.team_color and plr_data.player and plr_data.player.TeamColor then
             textColor = plr_data.player.TeamColor.Color
         end
-
+        
         -- Calculate text size based on distance
         local textSize = nametags_settings.text_size
-        local scaleFactor = math.clamp(1000 / distance, 12, 24)
+        local scaleFactor = math.clamp(1000 / distance, 16, 28) -- Увеличен максимальный размер (было 24, стало 28)
         textSize = scaleFactor
-
+        
         -- Update name label
         local displayText = playerName
         if nametags_settings.show_distance then
             displayText = playerName .. " [" .. math.floor(distance) .. "]"
         end
-
         obj.nameLabel.Text = displayText
         obj.nameLabel.Position = screenPos
         obj.nameLabel.Color = textColor
         obj.nameLabel.Size = textSize
         obj.nameLabel.Transparency = 1 - nametags_settings.transparency
         obj.nameLabel.Visible = true
-
+        
+        -- Weapon display
+        if nametags_settings.show_weapon then
+            local weaponName = "None"
+            if character:FindFirstChild("HandModel") then
+                weaponName = getToolName(character.HandModel)
+            end
+            
+            obj.weaponLabel.Text = weaponName
+            obj.weaponLabel.Position = Vector2.new(screenPos.X, screenPos.Y + textSize + 5)
+            obj.weaponLabel.Color = Color3.new(1, 0.8, 0) -- Золотой цвет для оружия
+            obj.weaponLabel.Size = textSize - 4
+            obj.weaponLabel.Transparency = 1 - nametags_settings.transparency
+            obj.weaponLabel.Visible = true
+        else
+            obj.weaponLabel.Visible = false
+        end
+        
         -- Health bar
         if nametags_settings.show_health and humanoid then
             local healthPercentage = humanoid.Health / humanoid.MaxHealth
             local barWidth = 60 * (scaleFactor / 16)
             local barHeight = 6
-            local barY = screenPos.Y + textSize + 5
-
+            local barY = screenPos.Y + textSize + (nametags_settings.show_weapon and 25 or 5)
+            
             -- Background
             obj.healthBar.background.Size = Vector2.new(barWidth, barHeight)
             obj.healthBar.background.Position = Vector2.new(screenPos.X - barWidth/2, barY)
             obj.healthBar.background.Visible = true
-
+            
             -- Foreground
             local healthWidth = barWidth * healthPercentage
             obj.healthBar.foreground.Size = Vector2.new(healthWidth, barHeight)
@@ -232,6 +262,7 @@ local function destroy_nametags(model)
     end
     
     plr_data.obj.nameLabel:Remove()
+    plr_data.obj.weaponLabel:Remove()
     plr_data.obj.healthBar.background:Remove()
     plr_data.obj.healthBar.foreground:Remove()
     
@@ -260,6 +291,10 @@ _G.SetNametagsSleepCheck = function(value)
     nametags_settings.sleep_check = value
 end
 
+_G.SetWeaponDisplay = function(value)
+    nametags_settings.show_weapon = value
+end
+
 _G.CleanupNametags = function()
     for model, plr_data in pairs(loaded_players) do
         destroy_nametags(model)
@@ -273,4 +308,5 @@ game:BindToClose(function()
     end
 end)
 
-print("Nametags ESP loaded successfully!")
+print("Enhanced Nametags with Weapon Display loaded successfully!")
+print("Features: Name, Distance, Health Bar, Weapon Display")

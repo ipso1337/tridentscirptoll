@@ -19,6 +19,7 @@ local Window = Library:CreateWindow({
 local Tabs = {
 	Combat = Window:AddTab("Combat", "sword"),
 	Visual = Window:AddTab("Visual", "eye"),
+	Misc = Window:AddTab("Misc", "tool"),
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
@@ -187,6 +188,69 @@ VisualGroupBox:AddToggle("WatermarkToggle", {
 	end,
 })
 
+-- Misc Features
+local MiscGroupBox = Tabs.Misc:AddLeftGroupbox("Misc Features", "tool")
+
+MiscGroupBox:AddLabel("BeterSlide System")
+
+MiscGroupBox:AddToggle("BeterSlideToggle", {
+	Default = false,
+	Text = "Enable BeterSlide",
+	Tooltip = "Enable better sliding mechanics (Hold C + LeftShift to slide)",
+
+	Callback = function(Value)
+		if Value then
+			local success, err = pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/misc/beterslide"))()
+				if _G.EnableBeterSlide then 
+					_G.EnableBeterSlide() 
+				end
+			end)
+			if success then
+				Library:Notify({ Title = "BeterSlide", Description = "BeterSlide enabled! Use C + LeftShift to slide", Time = 3 })
+			else
+				Library:Notify({ Title = "BeterSlide", Description = "Failed to load BeterSlide: " .. tostring(err), Time = 3 })
+			end
+		else
+			if _G.DisableBeterSlide then 
+				_G.DisableBeterSlide() 
+			end
+			Library:Notify({ Title = "BeterSlide", Description = "BeterSlide disabled", Time = 2 })
+		end
+	end,
+})
+
+MiscGroupBox:AddSlider("SlideSpeed", {
+	Text = "Slide Speed",
+	Default = 55,
+	Min = 55,
+	Max = 70,
+	Rounding = 0,
+	Suffix = " sps",
+	Callback = function(Value)
+		if _G.SetSlideSpeed then 
+			_G.SetSlideSpeed(Value) 
+		end
+	end,
+})
+
+MiscGroupBox:AddToggle("ForcesprintToggle", {
+	Default = false,
+	Text = "Forcesprint",
+	Tooltip = "Enable forced sprinting when not sliding",
+
+	Callback = function(Value)
+		if _G.SetForcesprint then 
+			_G.SetForcesprint(Value) 
+		end
+		Library:Notify({ 
+			Title = "Forcesprint", 
+			Description = Value and "Forcesprint enabled" or "Forcesprint disabled", 
+			Time = 2 
+		})
+	end,
+})
+
 -- UI Settings
 local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
 
@@ -243,7 +307,8 @@ MenuGroup:AddButton({
 			"CleanupCornerESP", 
 			"CleanupWatermark",
 			"CleanupVisualSpinbot",
-			"CleanupHitboxExpander"
+			"CleanupHitboxExpander",
+			"CleanupBeterSlide"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -265,7 +330,8 @@ Library:OnUnload(function()
 		"CleanupCornerESP", 
 		"CleanupWatermark",
 		"CleanupVisualSpinbot",
-		"CleanupHitboxExpander"
+		"CleanupHitboxExpander",
+		"CleanupBeterSlide"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

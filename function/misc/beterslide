@@ -1,37 +1,43 @@
--- BeterSlide System Configuration - Updated Logic
+-- BeterSlide System for Trident Survival - Fixed Version
 local bhop_enabled = false
 local speed = 55
 local forcesprint = false
 local niga, wtf = speed, 0
 local slideConnection = nil
 
--- Сервисы
+-- Services
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local Camera = workspace.CurrentCamera
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- Функции для глобального доступа
+-- Global functions
 _G.EnableBeterSlide = nil
 _G.DisableBeterSlide = nil
 _G.CleanupBeterSlide = nil
 _G.SetSlideSpeed = nil
 _G.SetForcesprint = nil
 
--- Вспомогательные функции
+-- Helper functions
 local function IsKeyDown(keyCode)
     return UserInputService:IsKeyDown(keyCode)
 end
 
+-- Get the correct character part for Trident Survival
 local function GetMiddlePart()
-    if LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return LocalPlayer.Character.HumanoidRootPart
+    -- Wait and check for the specific Trident Survival character structure
+    if Workspace:FindFirstChild("Const") and 
+       Workspace.Const:FindFirstChild("Ignore") and 
+       Workspace.Const.Ignore:FindFirstChild("LocalCharacter") then
+        local localCharacter = Workspace.Const.Ignore.LocalCharacter
+        return localCharacter:FindFirstChild("Middle")
     end
     return nil
 end
 
--- Основная логика BeterSlide (точная копия оригинального кода)
+-- Main BeterSlide logic (adapted for Trident Survival)
 local function BeterSlideLoop(delta)
     local middle = GetMiddlePart()
     
@@ -45,7 +51,7 @@ local function BeterSlideLoop(delta)
         direction = IsKeyDown(Enum.KeyCode.D) and direction + Vector3.new(-cameralook.Z, 0, cameralook.X) or direction
         direction = IsKeyDown(Enum.KeyCode.A) and direction + Vector3.new(cameralook.Z, 0, -cameralook.X) or direction
         
-        if not (direction == Vector3.zero) then
+        if direction.Magnitude > 0 then
             direction = direction.Unit
         end
         
@@ -73,7 +79,7 @@ local function BeterSlideLoop(delta)
             direction = IsKeyDown(Enum.KeyCode.D) and direction + Vector3.new(-cameralook.Z, 0, cameralook.X) or direction
             direction = IsKeyDown(Enum.KeyCode.A) and direction + Vector3.new(cameralook.Z, 0, -cameralook.X) or direction
             
-            if not (direction == Vector3.zero) then
+            if direction.Magnitude > 0 then
                 direction = direction.Unit
             end
             
@@ -89,27 +95,44 @@ local function BeterSlideLoop(delta)
     end
 end
 
--- Функция включения BeterSlide
+-- Wait for character to load (Trident Survival specific)
+local function WaitForCharacter()
+    local middle = nil
+    repeat
+        task.wait(0.5)
+        middle = GetMiddlePart()
+    until middle
+    return middle
+end
+
+-- Enable BeterSlide function
 local function EnableBeterSlide()
     if slideConnection then
-        return -- Уже включен
+        return -- Already enabled
+    end
+    
+    -- Wait for character to be ready
+    local middle = WaitForCharacter()
+    if not middle then
+        print("❌ Failed to find character - BeterSlide cannot be enabled")
+        return
     end
     
     bhop_enabled = true
     niga = speed
     wtf = 0
     
-    -- Подключаем основной цикл (аналог cheat.utility.new_renderstepped)
-    slideConnection = RunService.Heartbeat:Connect(BeterSlideLoop)
+    -- Connect main loop using RenderStepped (like the working example)
+    slideConnection = RunService.RenderStepped:Connect(BeterSlideLoop)
     
-    print("✓ BeterSlide enabled")
-    print("📋 Controls:")
+    print("✅ BeterSlide enabled for Trident Survival")
+    print("🎮 Controls:")
     print("   • Hold C + LeftShift to slide")
     print("   • Use WASD for direction")
     print("   • Current speed:", speed)
 end
 
--- Функция отключения BeterSlide
+-- Disable BeterSlide function
 local function DisableBeterSlide()
     bhop_enabled = false
     
@@ -118,18 +141,18 @@ local function DisableBeterSlide()
         slideConnection = nil
     end
     
-    -- Сброс параметров
+    -- Reset parameters
     niga = speed
     wtf = 0
     
-    print("✗ BeterSlide disabled")
+    print("❌ BeterSlide disabled")
 end
 
--- Функция полной очистки
+-- Cleanup function
 local function CleanupBeterSlide()
     DisableBeterSlide()
     
-    -- Очищаем глобальные функции
+    -- Clear global functions
     _G.EnableBeterSlide = nil
     _G.DisableBeterSlide = nil
     _G.CleanupBeterSlide = nil
@@ -139,29 +162,29 @@ local function CleanupBeterSlide()
     print("🧹 BeterSlide cleaned up")
 end
 
--- Функция настройки скорости
+-- Set slide speed function
 local function SetSlideSpeed(newSpeed)
     speed = math.clamp(newSpeed or 55, 55, 70)
-    niga = speed -- Обновляем текущую скорость
+    niga = speed -- Update current speed
     
     print("🏃 Slide speed set to:", speed)
 end
 
--- Функция переключения принудительного спринта
+-- Set forcesprint function
 local function SetForcesprint(enabled)
     forcesprint = enabled or false
     
     print("⚡ Forcesprint set to:", forcesprint)
 end
 
--- Назначаем глобальные функции
+-- Assign global functions
 _G.EnableBeterSlide = EnableBeterSlide
 _G.DisableBeterSlide = DisableBeterSlide
 _G.CleanupBeterSlide = CleanupBeterSlide
 _G.SetSlideSpeed = SetSlideSpeed
 _G.SetForcesprint = SetForcesprint
 
-print("🛹 BeterSlide System loaded successfully!")
+print("🛹 BeterSlide System loaded for Trident Survival!")
 print("📋 Available functions:")
 print("   • _G.EnableBeterSlide()")
 print("   • _G.DisableBeterSlide()")
@@ -170,9 +193,7 @@ print("   • _G.SetForcesprint(boolean)")
 print("   • _G.CleanupBeterSlide()")
 print("")
 print("🎮 How to use:")
-print("   1. Enable BeterSlide")
+print("   1. Enable BeterSlide from the GUI")
 print("   2. Hold C + LeftShift while moving to slide")
 print("   3. Use WASD for direction control")
-
--- Автоматический запуск (раскомментируйте если нужно)
--- EnableBeterSlide()
+print("   4. Adjust speed and forcesprint from GUI settings")

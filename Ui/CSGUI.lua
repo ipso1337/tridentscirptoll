@@ -138,6 +138,87 @@ CombatGroupBox:AddLabel("Aimbot Keybind"):AddKeyPicker("AimbotKeybind", {
 	end,
 })
 
+-- Hitbox Expander
+CombatGroupBox:AddDivider()
+CombatGroupBox:AddLabel("Hitbox Expander")
+
+CombatGroupBox:AddToggle("HitboxToggle", {
+	Default = false,
+	Text = "Enable Hitbox Expander",
+	Tooltip = "Expands player hitboxes for easier targeting",
+
+	Callback = function(Value)
+		if Value then
+			local success, err = pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/hitbox"))()
+				if _G.EnableHitboxExpander then 
+					_G.EnableHitboxExpander() 
+				end
+			end)
+			if success then
+				Library:Notify({ Title = "Hitbox Expander", Description = "Hitbox Expander enabled!", Time = 2 })
+			else
+				Library:Notify({ Title = "Hitbox Expander", Description = "Failed to load Hitbox Expander: " .. tostring(err), Time = 3 })
+			end
+		else
+			if _G.DisableHitboxExpander then 
+				_G.DisableHitboxExpander() 
+			end
+			Library:Notify({ Title = "Hitbox Expander", Description = "Hitbox Expander disabled", Time = 2 })
+		end
+	end,
+})
+
+CombatGroupBox:AddSlider("HitboxSize", {
+	Text = "Hitbox Size",
+	Default = 10,
+	Min = 1,
+	Max = 20,
+	Rounding = 1,
+	Callback = function(Value)
+		if _G.SetHitboxSize then 
+			_G.SetHitboxSize(Value) 
+		end
+	end,
+})
+
+CombatGroupBox:AddSlider("HitboxTransparency", {
+	Text = "Transparency",
+	Default = 50,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Callback = function(Value)
+		if _G.SetHitboxTransparency then 
+			_G.SetHitboxTransparency(Value / 100) 
+		end
+	end,
+})
+
+CombatGroupBox:AddToggle("HitboxCanCollide", {
+	Default = false,
+	Text = "Can Collide",
+	Tooltip = "Whether hitboxes can be collided with",
+
+	Callback = function(Value)
+		if _G.SetHitboxCanCollide then 
+			_G.SetHitboxCanCollide(Value) 
+		end
+	end,
+})
+
+CombatGroupBox:AddDropdown("HitboxPart", {
+	Values = { "Head", "Torso", "LowerTorso", "UpperTorso", "HumanoidRootPart", "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm", "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot" },
+	Default = 1,
+	Multi = false,
+	Text = "Target Part",
+	Callback = function(Value)
+		if _G.SetHitboxTargetPart then 
+			_G.SetHitboxTargetPart(Value) 
+		end
+	end,
+})
+
 -- Visuals
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
@@ -314,14 +395,15 @@ MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
 MenuGroup:AddButton({
 	Text = "Unload",
 	Func = function()
-		-- Cleanup all ESP functions
+		-- Cleanup all functions including hitbox expander
 		local cleanupFunctions = {
 			"CleanupBoxESP",
 			"CleanupCornerESP", 
 			"CleanupSkeletonESP",
 			"CleanupWatermark",
 			"CleanupVisualSpinbot",
-			"CleanupAimbot"
+			"CleanupAimbot",
+			"CleanupHitboxExpander"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -337,14 +419,15 @@ MenuGroup:AddButton({
 Library.ToggleKeybind = Options.MenuKeybind
 
 Library:OnUnload(function()
-	-- Cleanup all ESP functions on unload
+	-- Cleanup all functions on unload including hitbox expander
 	local cleanupFunctions = {
 		"CleanupBoxESP",
 		"CleanupCornerESP", 
 		"CleanupSkeletonESP",
 		"CleanupWatermark",
 		"CleanupVisualSpinbot",
-		"CleanupAimbot"
+		"CleanupAimbot",
+		"CleanupHitboxExpander"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

@@ -1,1 +1,375 @@
+-- Camlock System Configuration
+local CamlockConfig = {
+    TargetPart = "Head",           -- Часть тела для преследования
+    FOV = 120,                     -- FOV для выбора цели
+    Smoothness = 5,                -- Плавность преследования (1-10)
+    Prediction = 0.15,             -- Предсказание движения цели
+    ShowFOVCircle = true,          -- Показывать круг FOV
+    FOVColor = Color3.fromRGB(255, 255, 255), -- Цвет круга FOV
+    FOVTransparency = 0.5,         -- Прозрачность круга FOV
+    WallCheck = true,              -- Проверка стен между игроком и целью
+    MaxDistance = 500,             -- Максимальная дистанция для цели
+    Keybind = "C"                  -- Клавиша для переключения камлока
+}
 
+-- Скелетная структура для подключения частей тела
+local skeleton_order = {
+    ["LeftFoot"] = "LeftLowerLeg",
+    ["LeftLowerLeg"] = "LeftUpperLeg", 
+    ["LeftUpperLeg"] = "LowerTorso",
+    ["RightFoot"] = "RightLowerLeg",
+    ["RightLowerLeg"] = "RightUpperLeg",
+    ["RightUpperLeg"] = "LowerTorso",
+    ["LeftHand"] = "LeftLowerArm",
+    ["LeftLowerArm"] = "LeftUpperArm",
+    ["LeftUpperArm"] = "Torso",
+    ["RightHand"] = "RightLowerArm",
+    ["RightLowerArm"] = "RightUpperArm", 
+    ["RightUpperArm"] = "Torso",
+    ["LowerTorso"] = "Torso",
+    ["Torso"] = "Head"
+}
+
+-- Сервисы
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+
+-- Переменные
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local currentTarget = nil
+local isEnabled = false
+local fovCircle = nil
+local connections = {}
+
+-- Глобальные функции
+_G.EnableCamlock = nil
+_G.DisableCamlock = nil
+_G.CleanupCamlock = nil
+_G.SetCamlockTarget = nil
+_G.SetCamlockFOV = nil
+_G.SetCamlockSmoothness = nil
+_G.SetCamlockPrediction = nil
+_G.ToggleFOVCircle = nil
+
+-- Создание FOV круга
+local function CreateFOVCircle()
+    if fovCircle then
+        fovCircle:Remove()
+    end
+    
+    fovCircle = Drawing.new("Circle")
+    fovCircle.Thickness = 2
+    fovCircle.NumSides = 50
+    fovCircle.Radius = CamlockConfig.FOV
+    fovCircle.Color = CamlockConfig.FOVColor
+    fovCircle.Transparency = 1 - CamlockConfig.FOVTransparency
+    fovCircle.Visible = CamlockConfig.ShowFOVCircle and isEnabled
+    fovCircle.Filled = false
+end
+
+-- Обновление позиции FOV круга
+local function UpdateFOVCircle()
+    if fovCircle and Camera.ViewportSize then
+        fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        fovCircle.Radius = CamlockConfig.FOV
+    end
+end
+
+-- Проверка стен между игроком и целью
+local function WallCheck(targetPosition)
+    if not CamlockConfig.WallCheck then
+        return true
+    end
+    
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local origin = character.HumanoidRootPart.Position
+    local direction = (targetPosition - origin).Unit * (targetPosition - origin).Magnitude
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {character}
+    
+    local raycastResult = Workspace:Raycast(origin, direction, raycastParams)
+    
+    if raycastResult then
+        -- Проверяем, попал ли луч в цель или в стену
+        local hitPart = raycastResult.Instance
+        local targetCharacter = nil
+        
+        -- Найти персонажа цели
+        local temp = hitPart
+        while temp and temp ~= Workspace do
+            if temp:FindFirstChild("Humanoid") then
+                targetCharacter = temp
+                break
+            end
+            temp = temp.Parent
+        end
+        
+        -- Если луч попал в цель - стены нет
+        return targetCharacter ~= nil
+    end
+    
+    return true
+end
+
+-- Получение позиции цели с предсказанием
+local function GetTargetPosition(target)
+    local targetPart = target:FindFirstChild(CamlockConfig.TargetPart)
+    if not targetPart then
+        return nil
+    end
+    
+    local position = targetPart.Position
+    
+    -- Предсказание движения
+    if CamlockConfig.Prediction > 0 then
+        local humanoid = target:FindFirstChild("Humanoid")
+        if humanoid then
+            local velocity = targetPart.Velocity
+            position = position + (velocity * CamlockConfig.Prediction)
+        end
+    end
+    
+    return position
+end
+
+-- Поиск ближайшей цели в FOV
+local function FindTarget()
+    local bestTarget = nil
+    local bestDistance = math.huge
+    local character = LocalPlayer.Character
+    
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+    
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        
+        local targetCharacter = player.Character
+        if not targetCharacter then continue end
+        
+        local targetPart = targetCharacter:FindFirstChild(CamlockConfig.TargetPart)
+        if not targetPart then continue end
+        
+        local humanoid = targetCharacter:FindFirstChild("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then continue end
+        
+        -- Проверка максимальной дистанции
+        local distance = (character.HumanoidRootPart.Position - targetPart.Position).Magnitude
+        if distance > CamlockConfig.MaxDistance then continue end
+        
+        -- Проверка стен
+        if not WallCheck(targetPart.Position) then continue end
+        
+        -- Проверка FOV
+        local screenPosition, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+        if not onScreen then continue end
+        
+        local screenPos2D = Vector2.new(screenPosition.X, screenPosition.Y)
+        local distanceFromCenter = (screenPos2D - screenCenter).Magnitude
+        
+        if distanceFromCenter <= CamlockConfig.FOV and distanceFromCenter < bestDistance then
+            bestTarget = targetCharacter
+            bestDistance = distanceFromCenter
+        end
+    end
+    
+    return bestTarget
+end
+
+-- Основная функция камлока
+local function CamlockUpdate()
+    if not isEnabled or not currentTarget then
+        return
+    end
+    
+    -- Проверяем, жива ли цель
+    local humanoid = currentTarget:FindFirstChild("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then
+        currentTarget = nil
+        return
+    end
+    
+    -- Получаем позицию цели
+    local targetPosition = GetTargetPosition(currentTarget)
+    if not targetPosition then
+        currentTarget = nil
+        return
+    end
+    
+    -- Проверяем стены
+    if not WallCheck(targetPosition) then
+        currentTarget = nil
+        return
+    end
+    
+    -- Плавное движение камеры к цели
+    local currentCFrame = Camera.CFrame
+    local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, targetPosition)
+    
+    -- Интерполяция для плавности
+    local alpha = math.min(1, RunService.Heartbeat:Wait() * CamlockConfig.Smoothness)
+    Camera.CFrame = currentCFrame:Lerp(targetCFrame, alpha)
+end
+
+-- Включение камлока
+local function EnableCamlock()
+    if isEnabled then
+        return
+    end
+    
+    isEnabled = true
+    CreateFOVCircle()
+    
+    -- Поиск начальной цели
+    currentTarget = FindTarget()
+    
+    -- Подключение обновления
+    connections.camlockUpdate = RunService.Heartbeat:Connect(CamlockUpdate)
+    connections.fovUpdate = RunService.Heartbeat:Connect(UpdateFOVCircle)
+    
+    -- Автоматический поиск новой цели если текущая потеряна
+    connections.targetCheck = RunService.Heartbeat:Connect(function()
+        if not currentTarget then
+            currentTarget = FindTarget()
+        end
+    end)
+    
+    print("🎯 Camlock enabled - Target:", currentTarget and currentTarget.Name or "None")
+end
+
+-- Отключение камлока
+local function DisableCamlock()
+    if not isEnabled then
+        return
+    end
+    
+    isEnabled = false
+    currentTarget = nil
+    
+    -- Отключение всех соединений
+    for name, connection in pairs(connections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    connections = {}
+    
+    -- Удаление FOV круга
+    if fovCircle then
+        fovCircle:Remove()
+        fovCircle = nil
+    end
+    
+    print("❌ Camlock disabled")
+end
+
+-- Переключение камлока
+local function ToggleCamlock()
+    if isEnabled then
+        DisableCamlock()
+    else
+        EnableCamlock()
+    end
+end
+
+-- Обработчик клавиш
+local function OnKeyPress(key)
+    if key.KeyCode.Name:lower() == CamlockConfig.Keybind:lower() then
+        ToggleCamlock()
+    end
+end
+
+-- Полная очистка системы
+local function CleanupCamlock()
+    DisableCamlock()
+    
+    -- Отключение обработчика клавиш
+    if connections.keyHandler then
+        connections.keyHandler:Disconnect()
+    end
+    
+    -- Очистка глобальных функций
+    _G.EnableCamlock = nil
+    _G.DisableCamlock = nil
+    _G.CleanupCamlock = nil
+    _G.SetCamlockTarget = nil
+    _G.SetCamlockFOV = nil
+    _G.SetCamlockSmoothness = nil
+    _G.SetCamlockPrediction = nil
+    _G.ToggleFOVCircle = nil
+    
+    print("🧹 Camlock system cleaned up")
+end
+
+-- Функции настройки
+local function SetCamlockTarget(targetPart)
+    CamlockConfig.TargetPart = targetPart or "Head"
+    print("🎯 Camlock target set to:", CamlockConfig.TargetPart)
+end
+
+local function SetCamlockFOV(fov)
+    CamlockConfig.FOV = math.clamp(fov or 120, 10, 500)
+    if fovCircle then
+        fovCircle.Radius = CamlockConfig.FOV
+    end
+    print("👁️ Camlock FOV set to:", CamlockConfig.FOV)
+end
+
+local function SetCamlockSmoothness(smoothness)
+    CamlockConfig.Smoothness = math.clamp(smoothness or 5, 1, 20)
+    print("🎚️ Camlock smoothness set to:", CamlockConfig.Smoothness)
+end
+
+local function SetCamlockPrediction(prediction)
+    CamlockConfig.Prediction = math.clamp(prediction or 0.15, 0, 1)
+    print("🔮 Camlock prediction set to:", CamlockConfig.Prediction)
+end
+
+local function ToggleFOVCircle(enabled)
+    CamlockConfig.ShowFOVCircle = enabled
+    if fovCircle then
+        fovCircle.Visible = enabled and isEnabled
+    end
+    print("⭕ FOV Circle:", enabled and "enabled" or "disabled")
+end
+
+-- Назначение глобальных функций
+_G.EnableCamlock = EnableCamlock
+_G.DisableCamlock = DisableCamlock
+_G.CleanupCamlock = CleanupCamlock
+_G.SetCamlockTarget = SetCamlockTarget
+_G.SetCamlockFOV = SetCamlockFOV
+_G.SetCamlockSmoothness = SetCamlockSmoothness
+_G.SetCamlockPrediction = SetCamlockPrediction
+_G.ToggleFOVCircle = ToggleFOVCircle
+
+-- Подключение обработчика клавиш
+connections.keyHandler = UserInputService.KeyDown:Connect(OnKeyPress)
+
+print("🎯 Camlock System loaded successfully!")
+print("📋 Available functions:")
+print("   • _G.EnableCamlock()")
+print("   • _G.DisableCamlock()")
+print("   • _G.SetCamlockTarget(partName)")
+print("   • _G.SetCamlockFOV(number)")
+print("   • _G.SetCamlockSmoothness(1-20)")
+print("   • _G.SetCamlockPrediction(0-1)")
+print("   • _G.ToggleFOVCircle(boolean)")
+print("   • _G.CleanupCamlock()")
+print("⌨️ Press '" .. CamlockConfig.Keybind .. "' to toggle camlock")
+
+-- Автоматический запуск (раскомментируйте если нужно)
+-- EnableCamlock()

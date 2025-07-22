@@ -23,7 +23,6 @@ local Tabs = {
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
--- Combat Tab
 local CombatGroupBox = Tabs.Combat:AddLeftGroupbox("Combat Features", "sword")
 
 -- Hitbox Expander
@@ -106,11 +105,8 @@ CombatGroupBox:AddDropdown("HitboxPart", {
 	end,
 })
 
--- Visual Tab
+-- Visuals
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
-
--- ESP System
-VisualGroupBox:AddLabel("ESP System")
 
 VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	Values = { "none", "corner", "3d" },
@@ -162,174 +158,6 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	end,
 })
 
-VisualGroupBox:AddDivider()
-
--- Bullet Tracer System
-VisualGroupBox:AddLabel("Bullet Tracer System")
-
-VisualGroupBox:AddToggle("BulletTracerToggle", {
-	Default = false,
-	Text = "Enable Bullet Tracer",
-	Tooltip = "Enable bullet tracer visualization",
-
-	Callback = function(Value)
-		if Value then
-			local success, err = pcall(function()
-				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/bullettracer"))()
-				if _G.EnableBulletTracer then 
-					_G.EnableBulletTracer() 
-				end
-			end)
-			if success then
-				Library:Notify({ Title = "Bullet Tracer", Description = "Bullet Tracer enabled!", Time = 2 })
-			else
-				Library:Notify({ Title = "Bullet Tracer", Description = "Failed to load Bullet Tracer: " .. tostring(err), Time = 3 })
-			end
-		else
-			if _G.DisableBulletTracer then 
-				_G.DisableBulletTracer() 
-			end
-			Library:Notify({ Title = "Bullet Tracer", Description = "Bullet Tracer disabled", Time = 2 })
-		end
-	end,
-})
-
-VisualGroupBox:AddDropdown("BulletTracerType", {
-	Values = { "line", "beam", "trail", "particle" },
-	Default = 1,
-	Multi = false,
-	Text = "Tracer Type",
-	Tooltip = "Select the type of bullet tracer",
-
-	Callback = function(Value)
-		if _G.SetBulletTracerType then 
-			_G.SetBulletTracerType(Value) 
-		end
-		Library:Notify({ Title = "Bullet Tracer", Description = "Tracer type set to: " .. Value, Time = 2 })
-	end,
-})
-
-VisualGroupBox:AddDropdown("BulletTracerColor", {
-	Values = { "Red", "Green", "Blue", "Yellow", "Purple", "Orange", "White", "Pink" },
-	Default = 1,
-	Multi = false,
-	Text = "Tracer Color",
-	Tooltip = "Select bullet tracer color",
-
-	Callback = function(Value)
-		local colors = {
-			Red = Color3.new(1, 0, 0),
-			Green = Color3.new(0, 1, 0),
-			Blue = Color3.new(0, 0, 1),
-			Yellow = Color3.new(1, 1, 0),
-			Purple = Color3.new(1, 0, 1),
-			Orange = Color3.new(1, 0.5, 0),
-			White = Color3.new(1, 1, 1),
-			Pink = Color3.new(1, 0.4, 0.7)
-		}
-		if _G.SetBulletTracerColor and colors[Value] then 
-			_G.SetBulletTracerColor(colors[Value]) 
-		end
-		Library:Notify({ Title = "Bullet Tracer", Description = "Color set to: " .. Value, Time = 2 })
-	end,
-})
-
-VisualGroupBox:AddSlider("BulletTracerTransparency", {
-	Text = "Tracer Transparency",
-	Default = 0,
-	Min = 0,
-	Max = 80,
-	Rounding = 0,
-	Suffix = "%",
-	Callback = function(Value)
-		if _G.SetBulletTracerTransparency then 
-			_G.SetBulletTracerTransparency(Value / 100) 
-		end
-	end,
-})
-
-VisualGroupBox:AddSlider("BulletTracerThickness", {
-	Text = "Tracer Thickness",
-	Default = 2,
-	Min = 1,
-	Max = 8,
-	Rounding = 1,
-	Callback = function(Value)
-		if _G.SetBulletTracerThickness then 
-			_G.SetBulletTracerThickness(Value) 
-		end
-	end,
-})
-
-VisualGroupBox:AddSlider("BulletTracerFadeTime", {
-	Text = "Fade Time",
-	Default = 15,
-	Min = 5,
-	Max = 50,
-	Rounding = 1,
-	Suffix = "0ms",
-	Callback = function(Value)
-		if _G.SetBulletTracerFadeTime then 
-			_G.SetBulletTracerFadeTime(Value / 10) 
-		end
-	end,
-})
-
-VisualGroupBox:AddSlider("BulletTracerDistance", {
-	Text = "Max Distance",
-	Default = 500,
-	Min = 100,
-	Max = 2000,
-	Rounding = 50,
-	Suffix = " studs",
-	Callback = function(Value)
-		if _G.SetBulletTracerMaxDistance then 
-			_G.SetBulletTracerMaxDistance(Value) 
-		end
-	end,
-})
-
-VisualGroupBox:AddToggle("BulletTracerTeamCheck", {
-	Default = false,
-	Text = "Team Check",
-	Tooltip = "Hide tracers from teammates",
-
-	Callback = function(Value)
-		if _G.SetBulletTracerTeamCheck then 
-			_G.SetBulletTracerTeamCheck(Value) 
-		end
-	end,
-})
-
-VisualGroupBox:AddToggle("BulletTracerShowOwnBullets", {
-	Default = false,
-	Text = "Show Own Bullets",
-	Tooltip = "Display your own bullet tracers",
-
-	Callback = function(Value)
-		if _G.SetBulletTracerShowOwnBullets then 
-			_G.SetBulletTracerShowOwnBullets(Value) 
-		end
-	end,
-})
-
-VisualGroupBox:AddToggle("BulletTracerOutline", {
-	Default = true,
-	Text = "Outline",
-	Tooltip = "Add outline to line tracers",
-
-	Callback = function(Value)
-		if _G.SetBulletTracerOutline then 
-			_G.SetBulletTracerOutline(Value) 
-		end
-	end,
-})
-
-VisualGroupBox:AddDivider()
-
--- Watermark
-VisualGroupBox:AddLabel("Other Visual Features")
-
 VisualGroupBox:AddToggle("WatermarkToggle", {
 	Default = false,
 	Text = "Show Watermark",
@@ -360,7 +188,7 @@ VisualGroupBox:AddToggle("WatermarkToggle", {
 	end,
 })
 
--- Misc Tab
+-- Misc Features
 local MiscGroupBox = Tabs.Misc:AddLeftGroupbox("Misc Features", "tool")
 
 MiscGroupBox:AddLabel("BeterSlide System")
@@ -423,7 +251,7 @@ MiscGroupBox:AddToggle("ForcesprintToggle", {
 	end,
 })
 
--- UI Settings Tab
+-- UI Settings
 local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
 
 MenuGroup:AddToggle("KeybindMenuOpen", {
@@ -480,8 +308,7 @@ MenuGroup:AddButton({
 			"CleanupWatermark",
 			"CleanupVisualSpinbot",
 			"CleanupHitboxExpander",
-			"CleanupBeterSlide",
-			"CleanupBulletTracer"
+			"CleanupBeterSlide"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -504,8 +331,7 @@ Library:OnUnload(function()
 		"CleanupWatermark",
 		"CleanupVisualSpinbot",
 		"CleanupHitboxExpander",
-		"CleanupBeterSlide",
-		"CleanupBulletTracer"
+		"CleanupBeterSlide"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

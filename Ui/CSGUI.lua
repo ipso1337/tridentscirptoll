@@ -105,6 +105,49 @@ CombatGroupBox:AddDropdown("HitboxPart", {
 	end,
 })
 
+-- Long Neck
+CombatGroupBox:AddLabel("Long Neck")
+
+-- First create a toggle and capture the reference
+local LongNeckToggle = CombatGroupBox:AddToggle("LongNeckToggle", {
+	Default = false,
+	Text = "Enable Long Neck",
+	Tooltip = "Extends neck reach for better targeting",
+
+	Callback = function(Value)
+		if Value then
+			local success, err = pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/longneck"))()
+				if _G.EnableLongNeck then 
+					_G.EnableLongNeck() 
+				end
+			end)
+			if success then
+				Library:Notify({ Title = "Long Neck", Description = "Long Neck enabled!", Time = 2 })
+			else
+				Library:Notify({ Title = "Long Neck", Description = "Failed to load Long Neck: " .. tostring(err), Time = 3 })
+			end
+		else
+			if _G.DisableLongNeck then 
+				_G.DisableLongNeck() 
+			end
+			Library:Notify({ Title = "Long Neck", Description = "Long Neck disabled", Time = 2 })
+		end
+	end,
+})
+
+-- Then add a keybind to it using the reference
+local LongNeckKeybind = LongNeckToggle:AddKeyPicker("LongNeckKeybind", {
+	Default = "F",
+	Text = "Long Neck Keybind",
+	Mode = "Toggle", -- Options: "Toggle", "Hold", "Always"
+	-- Sets the toggle's value according to the keybind state if Mode is Toggle
+	SyncToggleState = true,
+	Callback = function(Value)
+		print("Long Neck keybind pressed, value:", Value)
+	end
+})
+
 -- Visuals
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
@@ -308,7 +351,8 @@ MenuGroup:AddButton({
 			"CleanupWatermark",
 			"CleanupVisualSpinbot",
 			"CleanupHitboxExpander",
-			"CleanupBeterSlide"
+			"CleanupBeterSlide",
+			"CleanupLongNeck"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -331,7 +375,8 @@ Library:OnUnload(function()
 		"CleanupWatermark",
 		"CleanupVisualSpinbot",
 		"CleanupHitboxExpander",
-		"CleanupBeterSlide"
+		"CleanupBeterSlide",
+		"CleanupLongNeck"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

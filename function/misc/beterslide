@@ -1,1 +1,206 @@
+-- BeterSlide System Configuration
+local BeterSlideConfig = {
+    speed = 55,                    -- Скорость слайда (55-70)
+    forcesprint = false,           -- Принудительный спринт
+    enabled = false,               -- Включен ли BeterSlide
+    sprintSpeed = 18,              -- Скорость обычного спринта
+    slideUpForce = 6.5,            -- Сила подъема при слайде
+    slideDownForce = -7,           -- Сила опускания при слайде
+    slideTime = 0.85,              -- Время слайда в секундах
+    minSpeed = 17,                 -- Минимальная скорость слайда
+    deceleration = 20              -- Скорость замедления
+}
 
+-- Глобальные переменные
+local isSlideEnabled = false
+local isForcesprintEnabled = false
+local currentSpeed = BeterSlideConfig.speed
+local slideTimer = 0
+local slideConnection = nil
+
+-- Сервисы
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Функции для глобального доступа
+_G.EnableBeterSlide = nil
+_G.DisableBeterSlide = nil
+_G.CleanupBeterSlide = nil
+_G.SetSlideSpeed = nil
+_G.SetForcesprint = nil
+
+-- Вспомогательные функции
+local function IsKeyDown(keyCode)
+    return UserInputService:IsKeyDown(keyCode)
+end
+
+local function GetMiddlePart()
+    if LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return LocalPlayer.Character.HumanoidRootPart
+    end
+    return nil
+end
+
+local function GetCameraDirection()
+    local cameralook = Camera.CFrame.LookVector
+    return Vector3.new(cameralook.X, 0, cameralook.Z)
+end
+
+local function GetMovementDirection()
+    local cameralook = GetCameraDirection()
+    local direction = Vector3.zero
+    
+    -- W - вперед
+    if IsKeyDown(Enum.KeyCode.W) then
+        direction = direction + cameralook
+    end
+    
+    -- S - назад
+    if IsKeyDown(Enum.KeyCode.S) then
+        direction = direction - cameralook
+    end
+    
+    -- D - вправо
+    if IsKeyDown(Enum.KeyCode.D) then
+        direction = direction + Vector3.new(-cameralook.Z, 0, cameralook.X)
+    end
+    
+    -- A - влево
+    if IsKeyDown(Enum.KeyCode.A) then
+        direction = direction + Vector3.new(cameralook.Z, 0, -cameralook.X)
+    end
+    
+    if direction ~= Vector3.zero then
+        direction = direction.Unit
+    end
+    
+    return direction
+end
+
+-- Основная логика BeterSlide
+local function BeterSlideLoop(delta)
+    local middle = GetMiddlePart()
+    if not middle then return end
+    
+    local direction = GetMovementDirection()
+    
+    -- Проверяем активацию слайда (C + LeftShift)
+    local isSliding = isSlideEnabled and IsKeyDown(Enum.KeyCode.C) and IsKeyDown(Enum.KeyCode.LeftShift)
+    
+    if isSliding then
+        -- Логика слайда
+        currentSpeed = math.clamp(currentSpeed - delta * BeterSlideConfig.deceleration, BeterSlideConfig.minSpeed, BeterSlideConfig.speed)
+        
+        -- Подъем в начале слайда
+        if slideTimer == 0 then
+            middle.CFrame = middle.CFrame + Vector3.new(0, BeterSlideConfig.slideUpForce, 0)
+        end
+        
+        -- Применяем скорость слайда
+        middle.AssemblyLinearVelocity = Vector3.new(
+            direction.X * currentSpeed,
+            slideTimer < BeterSlideConfig.slideTime and 0 or BeterSlideConfig.slideDownForce,
+            direction.Z * currentSpeed
+        )
+        
+        slideTimer = slideTimer + delta
+    else
+        -- Логика принудительного спринта
+        if isForcesprintEnabled and middle then
+            middle.AssemblyLinearVelocity = Vector3.new(
+                direction.X * BeterSlideConfig.sprintSpeed,
+                middle.AssemblyLinearVelocity.Y,
+                direction.Z * BeterSlideConfig.sprintSpeed
+            )
+        end
+        
+        -- Сброс параметров слайда
+        currentSpeed = BeterSlideConfig.speed
+        slideTimer = 0
+    end
+end
+
+-- Функция включения BeterSlide
+local function EnableBeterSlide()
+    if slideConnection then
+        return -- Уже включен
+    end
+    
+    -- Подключаем основной цикл
+    slideConnection = RunService.Heartbeat:Connect(BeterSlideLoop)
+    
+    print("✓ BeterSlide enabled")
+    print("📋 Controls:")
+    print("   • Hold C + LeftShift to slide")
+    print("   • Use WASD for direction")
+    print("   • Current speed:", BeterSlideConfig.speed)
+end
+
+-- Функция отключения BeterSlide
+local function DisableBeterSlide()
+    if slideConnection then
+        slideConnection:Disconnect()
+        slideConnection = nil
+    end
+    
+    -- Сброс параметров
+    currentSpeed = BeterSlideConfig.speed
+    slideTimer = 0
+    
+    print("✗ BeterSlide disabled")
+end
+
+-- Функция полной очистки
+local function CleanupBeterSlide()
+    DisableBeterSlide()
+    
+    -- Очищаем глобальные функции
+    _G.EnableBeterSlide = nil
+    _G.DisableBeterSlide = nil
+    _G.CleanupBeterSlide = nil
+    _G.SetSlideSpeed = nil
+    _G.SetForcesprint = nil
+    
+    print("🧹 BeterSlide cleaned up")
+end
+
+-- Функция настройки скорости
+local function SetSlideSpeed(speed)
+    BeterSlideConfig.speed = math.clamp(speed or 55, 55, 70)
+    currentSpeed = BeterSlideConfig.speed
+    
+    print("🏃 Slide speed set to:", BeterSlideConfig.speed)
+end
+
+-- Функция переключения принудительного спринта
+local function SetForcesprint(enabled)
+    isForcesprintEnabled = enabled or false
+    
+    print("⚡ Forcesprint set to:", isForcesprintEnabled)
+end
+
+-- Назначаем глобальные функции
+_G.EnableBeterSlide = EnableBeterSlide
+_G.DisableBeterSlide = DisableBeterSlide
+_G.CleanupBeterSlide = CleanupBeterSlide
+_G.SetSlideSpeed = SetSlideSpeed
+_G.SetForcesprint = SetForcesprint
+
+print("🛹 BeterSlide System loaded successfully!")
+print("📋 Available functions:")
+print("   • _G.EnableBeterSlide()")
+print("   • _G.DisableBeterSlide()")
+print("   • _G.SetSlideSpeed(55-70)")
+print("   • _G.SetForcesprint(boolean)")
+print("   • _G.CleanupBeterSlide()")
+print("")
+print("🎮 How to use:")
+print("   1. Enable BeterSlide")
+print("   2. Hold C + LeftShift while moving to slide")
+print("   3. Use WASD for direction control")
+
+-- Автоматический запуск (раскомментируйте если нужно)
+-- EnableBeterSlide()

@@ -198,6 +198,53 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	end,
 })
 
+-- Nametag ESP
+VisualGroupBox:AddLabel("Nametag ESP")
+
+VisualGroupBox:AddToggle("NametagToggle", {
+	Default = false,
+	Text = "Enable Nametag",
+	Tooltip = "Show player nametags with health bars",
+
+	Callback = function(Value)
+		if Value then
+			local success, err = pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/nametag"))()
+				if _G.EnableNametags then 
+					_G.EnableNametags() 
+				end
+			end)
+			if success then
+				Library:Notify({ Title = "Nametag ESP", Description = "Nametag ESP enabled!", Time = 2 })
+			else
+				Library:Notify({ Title = "Nametag ESP", Description = "Failed to load Nametag ESP: " .. tostring(err), Time = 3 })
+			end
+		else
+			if _G.DisableNametags then 
+				_G.DisableNametags() 
+			end
+			Library:Notify({ Title = "Nametag ESP", Description = "Nametag ESP disabled", Time = 2 })
+		end
+	end,
+})
+
+VisualGroupBox:AddToggle("SleepCheckToggle", {
+	Default = true,
+	Text = "Sleep Check",
+	Tooltip = "Hide nametags for sleeping players",
+
+	Callback = function(Value)
+		if _G.SetNametagsSleepCheck then 
+			_G.SetNametagsSleepCheck(Value) 
+		end
+		Library:Notify({ 
+			Title = "Sleep Check", 
+			Description = Value and "Sleep check enabled" or "Sleep check disabled", 
+			Time = 2 
+		})
+	end,
+})
+
 VisualGroupBox:AddToggle("WatermarkToggle", {
 	Default = false,
 	Text = "Show Watermark",
@@ -349,7 +396,8 @@ MenuGroup:AddButton({
 			"CleanupVisualSpinbot",
 			"CleanupHitboxExpander",
 			"CleanupBeterSlide",
-			"CleanupLongNeck"
+			"CleanupLongNeck",
+			"CleanupNametags"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -373,7 +421,8 @@ Library:OnUnload(function()
 		"CleanupVisualSpinbot",
 		"CleanupHitboxExpander",
 		"CleanupBeterSlide",
-		"CleanupLongNeck"
+		"CleanupLongNeck",
+		"CleanupNametags"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

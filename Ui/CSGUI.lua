@@ -145,7 +145,6 @@ local LongNeckKeybind = LongNeckToggle:AddKeyPicker("LongNeckKeybind", {
 		print("Long Neck keybind pressed, value:", Value)
 	end
 })
-
 -- Visuals
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
@@ -196,53 +195,6 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 				Library:Notify({ Title = "View Mode", Description = "Failed to load 3D ESP: " .. tostring(err), Time = 3 })
 			end
 		end
-	end,
-})
-
--- Nametag Section
-VisualGroupBox:AddLabel("Nametag Features")
-
-VisualGroupBox:AddToggle("NametagToggle", {
-	Default = false,
-	Text = "Enable Nametag ESP",
-	Tooltip = "Shows player names and information",
-
-	Callback = function(Value)
-		if Value then
-			local success, err = pcall(function()
-				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/nametag"))()
-				if _G.EnableNametagESP then 
-					_G.EnableNametagESP() 
-				end
-			end)
-			if success then
-				Library:Notify({ Title = "Nametag ESP", Description = "Nametag ESP enabled!", Time = 2 })
-			else
-				Library:Notify({ Title = "Nametag ESP", Description = "Failed to load Nametag ESP: " .. tostring(err), Time = 3 })
-			end
-		else
-			if _G.DisableNametagESP then 
-				_G.DisableNametagESP() 
-			end
-			Library:Notify({ Title = "Nametag ESP", Description = "Nametag ESP disabled", Time = 2 })
-		end
-	end,
-})
-
-VisualGroupBox:AddToggle("SleepCheckToggle", {
-	Default = false,
-	Text = "Sleep Check",
-	Tooltip = "Hide ESP for sleeping players",
-
-	Callback = function(Value)
-		if _G.SetSleepCheck then 
-			_G.SetSleepCheck(Value)
-		end
-		Library:Notify({ 
-			Title = "Sleep Check", 
-			Description = Value and "Sleep check enabled - sleeping players hidden" or "Sleep check disabled - all players shown", 
-			Time = 2 
-		})
 	end,
 })
 
@@ -397,8 +349,7 @@ MenuGroup:AddButton({
 			"CleanupVisualSpinbot",
 			"CleanupHitboxExpander",
 			"CleanupBeterSlide",
-			"CleanupLongNeck",
-			"CleanupNametagESP"
+			"CleanupLongNeck"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -422,8 +373,7 @@ Library:OnUnload(function()
 		"CleanupVisualSpinbot",
 		"CleanupHitboxExpander",
 		"CleanupBeterSlide",
-		"CleanupLongNeck",
-		"CleanupNametagESP"
+		"CleanupLongNeck"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

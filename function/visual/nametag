@@ -1,1 +1,276 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
 
+-- Hardcoded Nametags Settings
+local nametags_settings = {
+    enabled = true, -- Master toggle for Nametags
+    sleep_check = true, -- Check if player is sleeping
+    color = Color3.new(1, 1, 1), -- White
+    transparency = 0, -- 0 = fully opaque, 1 = fully transparent
+    teamcheck = false, -- Disable team check
+    team_color = false, -- Use team colors
+    maxdistance = 200, -- Maximum distance for nametags rendering
+    distancelimit = false, -- Disable distance limit
+    text_size = 16, -- Base text size
+    show_distance = true, -- Show distance in brackets
+    show_health = true, -- Show health bar
+    outline = true -- Text outline
+}
+
+-- Utility Functions
+local function worldToScreen(world)
+    local screen, inBounds = Camera:WorldToViewportPoint(world)
+    return Vector2.new(screen.X, screen.Y), inBounds, screen.Z
+end
+
+local function sleepCheck(player)
+    local animations = player:FindFirstChild("AnimationController") and player.AnimationController:GetPlayingAnimationTracks()
+    if animations then
+        for _, v in pairs(animations) do
+            if (v.IsPlaying and v.Animation.AnimationId == "rbxassetid://13280887764") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function createTextLabel(text, color, size)
+    local label = Drawing.new("Text")
+    label.Visible = false
+    label.Text = text
+    label.Color = color
+    label.Size = size
+    label.Center = true
+    label.Outline = nametags_settings.outline
+    label.Font = Drawing.Fonts.UI -- Изменен шрифт на UI
+    label.Transparency = 1 - nametags_settings.transparency
+    return label
+end
+
+local function createHealthBar()
+    local background = Drawing.new("Square")
+    background.Visible = false
+    background.Filled = true
+    background.Color = Color3.new(0, 0, 0)
+    background.Transparency = 0.5
+    background.Thickness = 1
+    
+    local foreground = Drawing.new("Square")
+    foreground.Visible = false
+    foreground.Filled = true
+    foreground.Color = Color3.new(0, 1, 0)
+    foreground.Transparency = 0
+    foreground.Thickness = 1
+    
+    return {background = background, foreground = foreground}
+end
+
+-- Nametags Management
+local loaded_players = {}
+
+local function create_nametags(model)
+    if not (model and model:FindFirstChild("Head") and model:FindFirstChild("LowerTorso")) then
+        return
+    end
+    
+    -- Skip if player name is "Shylou2644"
+    if model:FindFirstChild("Head") and model.Head:FindFirstChild("Nametag") and 
+       model.Head.Nametag:FindFirstChild("tag") and model.Head.Nametag.tag.Text == "Shylou2644" then
+        return
+    end
+    
+    -- Find player object for team checks
+    local player = nil
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character == model then
+            player = p
+            break
+        end
+    end
+    
+    loaded_players[model] = {
+        player = player,
+        obj = {
+            nameLabel = createTextLabel("Player", nametags_settings.color, nametags_settings.text_size),
+            healthBar = createHealthBar()
+        },
+        connection = nil
+    }
+    
+    local plr_data = loaded_players[model]
+    local obj = plr_data.obj
+    local character = model
+    local head = model:FindFirstChild("Head")
+    local lowertorso = model:FindFirstChild("LowerTorso")
+    local humanoid = model:FindFirstChild("Humanoid")
+
+    plr_data.connection = RunService.RenderStepped:Connect(function()
+        if not (nametags_settings.enabled and head and character and character.Parent) then
+            obj.nameLabel.Visible = false
+            obj.healthBar.background.Visible = false
+            obj.healthBar.foreground.Visible = false
+            return
+        end
+        
+        -- Check if character is alive
+        if humanoid and humanoid.Health <= 0 then
+            obj.nameLabel.Visible = false
+            obj.healthBar.background.Visible = false
+            obj.healthBar.foreground.Visible = false
+            return
+        end
+
+        -- Sleep check
+        if nametags_settings.sleep_check and sleepCheck(character) then
+            obj.nameLabel.Visible = false
+            obj.healthBar.background.Visible = false
+            obj.healthBar.foreground.Visible = false
+            return
+        end
+
+        local screenPos, onScreen = worldToScreen(head.Position + Vector3.new(0, 1, 0))
+        if not onScreen then
+            obj.nameLabel.Visible = false
+            obj.healthBar.background.Visible = false
+            obj.healthBar.foreground.Visible = false
+            return
+        end
+
+        -- Distance check
+        local distance = (Camera.CFrame.Position - head.Position).Magnitude
+        if nametags_settings.distancelimit and distance > nametags_settings.maxdistance then
+            obj.nameLabel.Visible = false
+            obj.healthBar.background.Visible = false
+            obj.healthBar.foreground.Visible = false
+            return
+        end
+
+        -- Team check
+        if nametags_settings.teamcheck and plr_data.player and Players.LocalPlayer then
+            if plr_data.player.Team == Players.LocalPlayer.Team then
+                obj.nameLabel.Visible = false
+                obj.healthBar.background.Visible = false
+                obj.healthBar.foreground.Visible = false
+                return
+            end
+        end
+
+        -- Get player name
+        local playerName = "Player"
+        if head:FindFirstChild("Nametag") and head.Nametag:FindFirstChild("tag") and head.Nametag.tag.Text ~= "" then
+            playerName = head.Nametag.tag.Text
+        end
+
+        -- Determine color
+        local textColor = nametags_settings.color
+        if nametags_settings.team_color and plr_data.player and plr_data.player.TeamColor then
+            textColor = plr_data.player.TeamColor.Color
+        end
+
+        -- Calculate text size based on distance
+        local textSize = nametags_settings.text_size
+        local scaleFactor = math.clamp(1000 / distance, 12, 24)
+        textSize = scaleFactor
+
+        -- Update name label
+        local displayText = playerName
+        if nametags_settings.show_distance then
+            displayText = playerName .. " [" .. math.floor(distance) .. "]"
+        end
+
+        obj.nameLabel.Text = displayText
+        obj.nameLabel.Position = screenPos
+        obj.nameLabel.Color = textColor
+        obj.nameLabel.Size = textSize
+        obj.nameLabel.Transparency = 1 - nametags_settings.transparency
+        obj.nameLabel.Visible = true
+
+        -- Health bar
+        if nametags_settings.show_health and humanoid then
+            local healthPercentage = humanoid.Health / humanoid.MaxHealth
+            local barWidth = 60 * (scaleFactor / 16)
+            local barHeight = 6
+            local barY = screenPos.Y + textSize + 5
+
+            -- Background
+            obj.healthBar.background.Size = Vector2.new(barWidth, barHeight)
+            obj.healthBar.background.Position = Vector2.new(screenPos.X - barWidth/2, barY)
+            obj.healthBar.background.Visible = true
+
+            -- Foreground
+            local healthWidth = barWidth * healthPercentage
+            obj.healthBar.foreground.Size = Vector2.new(healthWidth, barHeight)
+            obj.healthBar.foreground.Position = Vector2.new(screenPos.X - barWidth/2, barY)
+            
+            -- Health color based on percentage
+            if healthPercentage > 0.6 then
+                obj.healthBar.foreground.Color = Color3.new(0, 1, 0) -- Green
+            elseif healthPercentage > 0.3 then
+                obj.healthBar.foreground.Color = Color3.new(1, 1, 0) -- Yellow
+            else
+                obj.healthBar.foreground.Color = Color3.new(1, 0, 0) -- Red
+            end
+            
+            obj.healthBar.foreground.Visible = true
+        else
+            obj.healthBar.background.Visible = false
+            obj.healthBar.foreground.Visible = false
+        end
+    end)
+end
+
+local function destroy_nametags(model)
+    local plr_data = loaded_players[model]
+    if not plr_data then return end
+    
+    if plr_data.connection then
+        plr_data.connection:Disconnect()
+    end
+    
+    plr_data.obj.nameLabel:Remove()
+    plr_data.obj.healthBar.background:Remove()
+    plr_data.obj.healthBar.foreground:Remove()
+    
+    loaded_players[model] = nil
+end
+
+-- Initialize Nametags for existing players
+for _, v in ipairs(Workspace:GetChildren()) do
+    create_nametags(v)
+end
+
+-- Handle player addition and removal
+Workspace.ChildAdded:Connect(create_nametags)
+Workspace.ChildRemoved:Connect(destroy_nametags)
+
+-- Global functions for external control
+_G.DisableNametags = function()
+    nametags_settings.enabled = false
+end
+
+_G.EnableNametags = function()
+    nametags_settings.enabled = true
+end
+
+_G.SetNametagsSleepCheck = function(value)
+    nametags_settings.sleep_check = value
+end
+
+_G.CleanupNametags = function()
+    for model, plr_data in pairs(loaded_players) do
+        destroy_nametags(model)
+    end
+end
+
+-- Cleanup on script termination
+game:BindToClose(function()
+    for model, plr_data in pairs(loaded_players) do
+        destroy_nametags(model)
+    end
+end)
+
+print("Nametags ESP loaded successfully!")

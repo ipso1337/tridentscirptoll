@@ -1,30 +1,32 @@
--- Skeleton ESP Script (Fixed with Circle Head)
--- Services
+-- Улучшенный Skeleton ESP с Circle Head (по логике первого скрипта)
+-- Сервисы
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local PlayersService = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
--- Variables
+-- Переменные
 local Camera = Workspace.CurrentCamera
-local LocalPlayer = PlayersService.LocalPlayer
-local Lines = {}
-local Circles = {}
-local ESPConnection = nil
-local ESPEnabled = true
+local LocalPlayer = Players.LocalPlayer
+local LoadedPlayers = {}
 
--- Settings
+-- Настройки
 local Settings = {
-    Skeleton_Color = Color3.fromRGB(255, 255, 255), -- White color
-    Skeleton_Thickness = 2,
-    Head_Size = 8,
-    Team_Check = false,
-    Team_Color = false,
-    Autothickness = true
+    enabled = true, -- Включение ESP
+    skeleton_color = Color3.fromRGB(255, 255, 255), -- Белый цвет линий
+    skeleton_thickness = 2, -- Толщина линий
+    head_size = 8, -- Размер головы
+    team_check = false, -- Проверка команды
+    team_color = false, -- Использовать цвет команды
+    auto_thickness = true, -- Автоматическая толщина в зависимости от расстояния
+    distancelimit = false, -- Ограничение по расстоянию
+    maxdistance = 200, -- Максимальное расстояние для ESP
+    health_check = true -- Показывать ESP только для живых игроков
 }
 
--- Functions
-local function HasCharacter(Player)
-    return Player and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player ~= LocalPlayer
+-- Вспомогательные функции
+local function worldToScreen(world)
+    local screen, inBounds = Camera:WorldToViewportPoint(world)
+    return Vector2.new(screen.X, screen.Y), inBounds, screen.Z
 end
 
 local function NewLine(color, thickness)
@@ -33,8 +35,8 @@ local function NewLine(color, thickness)
     line.From = Vector2.new(0, 0)
     line.To = Vector2.new(0, 0)
     line.Color = color
-    line.Thickness = thickness
     line.Transparency = 1
+    line.Thickness = thickness
     return line
 end
 
@@ -50,346 +52,363 @@ local function NewCircle(color, thickness, radius)
     return circle
 end
 
-local function DrawSkeletonESP(Player)
-    if not HasCharacter(Player) then return end
+-- Функция для получения позиций R15 костей
+local function getR15SkeletonPoints(character)
+    local parts = {
+        Head = character:FindFirstChild("Head"),
+        UpperTorso = character:FindFirstChild("UpperTorso"),
+        LowerTorso = character:FindFirstChild("LowerTorso"),
+        LeftUpperArm = character:FindFirstChild("LeftUpperArm"),
+        LeftLowerArm = character:FindFirstChild("LeftLowerArm"),
+        LeftHand = character:FindFirstChild("LeftHand"),
+        RightUpperArm = character:FindFirstChild("RightUpperArm"),
+        RightLowerArm = character:FindFirstChild("RightLowerArm"),
+        RightHand = character:FindFirstChild("RightHand"),
+        LeftUpperLeg = character:FindFirstChild("LeftUpperLeg"),
+        LeftLowerLeg = character:FindFirstChild("LeftLowerLeg"),
+        LeftFoot = character:FindFirstChild("LeftFoot"),
+        RightUpperLeg = character:FindFirstChild("RightUpperLeg"),
+        RightLowerLeg = character:FindFirstChild("RightLowerLeg"),
+        RightFoot = character:FindFirstChild("RightFoot")
+    }
     
-    local Character = Player.Character
-    local HumanoidRootPart = Character.HumanoidRootPart
-    local Humanoid = Character:FindFirstChild("Humanoid")
-    
-    if not Humanoid or Humanoid.Health <= 0 then return end
-    
-    local HumPos, OnScreen = Camera:WorldToViewportPoint(HumanoidRootPart.Position)
-    
-    if not OnScreen then return end
-    
-    -- Determine color
-    local skeletonColor = Settings.Skeleton_Color
-    if Settings.Team_Check then
-        if Player.TeamColor == LocalPlayer.TeamColor then
-            skeletonColor = Color3.fromRGB(0, 255, 0)
-        else 
-            skeletonColor = Color3.fromRGB(255, 255, 255)
+    -- Проверяем наличие всех необходимых частей
+    for name, part in pairs(parts) do
+        if not part or not part:IsA("BasePart") then
+            return nil
         end
     end
     
-    if Settings.Team_Color then
-        skeletonColor = Player.TeamColor.Color
-    end
-    
-    -- Calculate thickness based on distance
-    local distance = (Camera.CFrame.Position - HumanoidRootPart.Position).Magnitude
-    local thickness = Settings.Skeleton_Thickness
-    if Settings.Autothickness then
-        thickness = math.clamp(1/distance*100, 1, 4)
-    end
-    
-    -- Check if R15 or R6
-    local R15 = (Humanoid.RigType == Enum.HumanoidRigType.R15)
-    
-    if R15 then
-        -- R15 Skeleton
-        if Character:FindFirstChild("Head") and 
-           Character:FindFirstChild("UpperTorso") and 
-           Character:FindFirstChild("LowerTorso") and
-           Character:FindFirstChild("LeftUpperArm") and 
-           Character:FindFirstChild("LeftLowerArm") and 
-           Character:FindFirstChild("LeftHand") and
-           Character:FindFirstChild("RightUpperArm") and 
-           Character:FindFirstChild("RightLowerArm") and 
-           Character:FindFirstChild("RightHand") and
-           Character:FindFirstChild("LeftUpperLeg") and 
-           Character:FindFirstChild("LeftLowerLeg") and 
-           Character:FindFirstChild("LeftFoot") and
-           Character:FindFirstChild("RightUpperLeg") and 
-           Character:FindFirstChild("RightLowerLeg") and 
-           Character:FindFirstChild("RightFoot") then
-            
-            -- Get positions
-            local H = Camera:WorldToViewportPoint(Character.Head.Position)
-            local UT = Camera:WorldToViewportPoint(Character.UpperTorso.Position)
-            local LT = Camera:WorldToViewportPoint(Character.LowerTorso.Position)
-            
-            -- Left Arm
-            local LUA = Camera:WorldToViewportPoint(Character.LeftUpperArm.Position)
-            local LLA = Camera:WorldToViewportPoint(Character.LeftLowerArm.Position)
-            local LH = Camera:WorldToViewportPoint(Character.LeftHand.Position)
-            
-            -- Right Arm
-            local RUA = Camera:WorldToViewportPoint(Character.RightUpperArm.Position)
-            local RLA = Camera:WorldToViewportPoint(Character.RightLowerArm.Position)
-            local RH = Camera:WorldToViewportPoint(Character.RightHand.Position)
-            
-            -- Left Leg
-            local LUL = Camera:WorldToViewportPoint(Character.LeftUpperLeg.Position)
-            local LLL = Camera:WorldToViewportPoint(Character.LeftLowerLeg.Position)
-            local LF = Camera:WorldToViewportPoint(Character.LeftFoot.Position)
-            
-            -- Right Leg
-            local RUL = Camera:WorldToViewportPoint(Character.RightUpperLeg.Position)
-            local RLL = Camera:WorldToViewportPoint(Character.RightLowerLeg.Position)
-            local RF = Camera:WorldToViewportPoint(Character.RightFoot.Position)
-            
-            -- Head Circle
-            local headCircle = NewCircle(skeletonColor, thickness, Settings.Head_Size)
-            headCircle.Position = Vector2.new(H.X, H.Y)
-            headCircle.Visible = true
-            table.insert(Circles, headCircle)
-            
-            -- Spine
-            local HeadToUpperTorso = NewLine(skeletonColor, thickness)
-            HeadToUpperTorso.From = Vector2.new(H.X, H.Y)
-            HeadToUpperTorso.To = Vector2.new(UT.X, UT.Y)
-            HeadToUpperTorso.Visible = true
-            table.insert(Lines, HeadToUpperTorso)
-            
-            local UpperToLowerTorso = NewLine(skeletonColor, thickness)
-            UpperToLowerTorso.From = Vector2.new(UT.X, UT.Y)
-            UpperToLowerTorso.To = Vector2.new(LT.X, LT.Y)
-            UpperToLowerTorso.Visible = true
-            table.insert(Lines, UpperToLowerTorso)
-            
-            -- Left Arm
-            local UpperTorsoToLeftUpperArm = NewLine(skeletonColor, thickness)
-            UpperTorsoToLeftUpperArm.From = Vector2.new(UT.X, UT.Y)
-            UpperTorsoToLeftUpperArm.To = Vector2.new(LUA.X, LUA.Y)
-            UpperTorsoToLeftUpperArm.Visible = true
-            table.insert(Lines, UpperTorsoToLeftUpperArm)
-            
-            local LeftUpperArmToLeftLowerArm = NewLine(skeletonColor, thickness)
-            LeftUpperArmToLeftLowerArm.From = Vector2.new(LUA.X, LUA.Y)
-            LeftUpperArmToLeftLowerArm.To = Vector2.new(LLA.X, LLA.Y)
-            LeftUpperArmToLeftLowerArm.Visible = true
-            table.insert(Lines, LeftUpperArmToLeftLowerArm)
-            
-            local LeftLowerArmToLeftHand = NewLine(skeletonColor, thickness)
-            LeftLowerArmToLeftHand.From = Vector2.new(LLA.X, LLA.Y)
-            LeftLowerArmToLeftHand.To = Vector2.new(LH.X, LH.Y)
-            LeftLowerArmToLeftHand.Visible = true
-            table.insert(Lines, LeftLowerArmToLeftHand)
-            
-            -- Right Arm
-            local UpperTorsoToRightUpperArm = NewLine(skeletonColor, thickness)
-            UpperTorsoToRightUpperArm.From = Vector2.new(UT.X, UT.Y)
-            UpperTorsoToRightUpperArm.To = Vector2.new(RUA.X, RUA.Y)
-            UpperTorsoToRightUpperArm.Visible = true
-            table.insert(Lines, UpperTorsoToRightUpperArm)
-            
-            local RightUpperArmToRightLowerArm = NewLine(skeletonColor, thickness)
-            RightUpperArmToRightLowerArm.From = Vector2.new(RUA.X, RUA.Y)
-            RightUpperArmToRightLowerArm.To = Vector2.new(RLA.X, RLA.Y)
-            RightUpperArmToRightLowerArm.Visible = true
-            table.insert(Lines, RightUpperArmToRightLowerArm)
-            
-            local RightLowerArmToRightHand = NewLine(skeletonColor, thickness)
-            RightLowerArmToRightHand.From = Vector2.new(RLA.X, RLA.Y)
-            RightLowerArmToRightHand.To = Vector2.new(RH.X, RH.Y)
-            RightLowerArmToRightHand.Visible = true
-            table.insert(Lines, RightLowerArmToRightHand)
-            
-            -- Left Leg
-            local LowerTorsoToLeftUpperLeg = NewLine(skeletonColor, thickness)
-            LowerTorsoToLeftUpperLeg.From = Vector2.new(LT.X, LT.Y)
-            LowerTorsoToLeftUpperLeg.To = Vector2.new(LUL.X, LUL.Y)
-            LowerTorsoToLeftUpperLeg.Visible = true
-            table.insert(Lines, LowerTorsoToLeftUpperLeg)
-            
-            local LeftUpperLegToLeftLowerLeg = NewLine(skeletonColor, thickness)
-            LeftUpperLegToLeftLowerLeg.From = Vector2.new(LUL.X, LUL.Y)
-            LeftUpperLegToLeftLowerLeg.To = Vector2.new(LLL.X, LLL.Y)
-            LeftUpperLegToLeftLowerLeg.Visible = true
-            table.insert(Lines, LeftUpperLegToLeftLowerLeg)
-            
-            local LeftLowerLegToLeftFoot = NewLine(skeletonColor, thickness)
-            LeftLowerLegToLeftFoot.From = Vector2.new(LLL.X, LLL.Y)
-            LeftLowerLegToLeftFoot.To = Vector2.new(LF.X, LF.Y)
-            LeftLowerLegToLeftFoot.Visible = true
-            table.insert(Lines, LeftLowerLegToLeftFoot)
-            
-            -- Right Leg
-            local LowerTorsoToRightUpperLeg = NewLine(skeletonColor, thickness)
-            LowerTorsoToRightUpperLeg.From = Vector2.new(LT.X, LT.Y)
-            LowerTorsoToRightUpperLeg.To = Vector2.new(RUL.X, RUL.Y)
-            LowerTorsoToRightUpperLeg.Visible = true
-            table.insert(Lines, LowerTorsoToRightUpperLeg)
-            
-            local RightUpperLegToRightLowerLeg = NewLine(skeletonColor, thickness)
-            RightUpperLegToRightLowerLeg.From = Vector2.new(RUL.X, RUL.Y)
-            RightUpperLegToRightLowerLeg.To = Vector2.new(RLL.X, RLL.Y)
-            RightUpperLegToRightLowerLeg.Visible = true
-            table.insert(Lines, RightUpperLegToRightLowerLeg)
-            
-            local RightLowerLegToRightFoot = NewLine(skeletonColor, thickness)
-            RightLowerLegToRightFoot.From = Vector2.new(RLL.X, RLL.Y)
-            RightLowerLegToRightFoot.To = Vector2.new(RF.X, RF.Y)
-            RightLowerLegToRightFoot.Visible = true
-            table.insert(Lines, RightLowerLegToRightFoot)
-        end
-    else
-        -- R6 Skeleton
-        if Character:FindFirstChild("Head") and 
-           Character:FindFirstChild("Torso") and 
-           Character:FindFirstChild("Left Arm") and 
-           Character:FindFirstChild("Right Arm") and
-           Character:FindFirstChild("Left Leg") and 
-           Character:FindFirstChild("Right Leg") then
-            
-            local H = Camera:WorldToViewportPoint(Character.Head.Position)
-            local T_Height = Character.Torso.Size.Y/2 - 0.2
-            local UT = Camera:WorldToViewportPoint((Character.Torso.CFrame * CFrame.new(0, T_Height, 0)).Position)
-            local LT = Camera:WorldToViewportPoint((Character.Torso.CFrame * CFrame.new(0, -T_Height, 0)).Position)
-
-            local LA_Height = Character["Left Arm"].Size.Y/2 - 0.2
-            local LUA = Camera:WorldToViewportPoint((Character["Left Arm"].CFrame * CFrame.new(0, LA_Height, 0)).Position)
-            local LLA = Camera:WorldToViewportPoint((Character["Left Arm"].CFrame * CFrame.new(0, -LA_Height, 0)).Position)
-
-            local RA_Height = Character["Right Arm"].Size.Y/2 - 0.2
-            local RUA = Camera:WorldToViewportPoint((Character["Right Arm"].CFrame * CFrame.new(0, RA_Height, 0)).Position)
-            local RLA = Camera:WorldToViewportPoint((Character["Right Arm"].CFrame * CFrame.new(0, -RA_Height, 0)).Position)
-
-            local LL_Height = Character["Left Leg"].Size.Y/2 - 0.2
-            local LUL = Camera:WorldToViewportPoint((Character["Left Leg"].CFrame * CFrame.new(0, LL_Height, 0)).Position)
-            local LLL = Camera:WorldToViewportPoint((Character["Left Leg"].CFrame * CFrame.new(0, -LL_Height, 0)).Position)
-
-            local RL_Height = Character["Right Leg"].Size.Y/2 - 0.2
-            local RUL = Camera:WorldToViewportPoint((Character["Right Leg"].CFrame * CFrame.new(0, RL_Height, 0)).Position)
-            local RLL = Camera:WorldToViewportPoint((Character["Right Leg"].CFrame * CFrame.new(0, -RL_Height, 0)).Position)
-            
-            -- Head Circle
-            local headCircle = NewCircle(skeletonColor, thickness, Settings.Head_Size)
-            headCircle.Position = Vector2.new(H.X, H.Y)
-            headCircle.Visible = true
-            table.insert(Circles, headCircle)
-
-            -- Head to spine
-            local HeadToSpine = NewLine(skeletonColor, thickness)
-            HeadToSpine.From = Vector2.new(H.X, H.Y)
-            HeadToSpine.To = Vector2.new(UT.X, UT.Y)
-            HeadToSpine.Visible = true
-            table.insert(Lines, HeadToSpine)
-
-            -- Spine
-            local Spine = NewLine(skeletonColor, thickness)
-            Spine.From = Vector2.new(UT.X, UT.Y)
-            Spine.To = Vector2.new(LT.X, LT.Y)
-            Spine.Visible = true
-            table.insert(Lines, Spine)
-
-            -- Left Arm
-            local LeftArmConnection = NewLine(skeletonColor, thickness)
-            LeftArmConnection.From = Vector2.new(UT.X, UT.Y)
-            LeftArmConnection.To = Vector2.new(LUA.X, LUA.Y)
-            LeftArmConnection.Visible = true
-            table.insert(Lines, LeftArmConnection)
-            
-            local LeftArm = NewLine(skeletonColor, thickness)
-            LeftArm.From = Vector2.new(LUA.X, LUA.Y)
-            LeftArm.To = Vector2.new(LLA.X, LLA.Y)
-            LeftArm.Visible = true
-            table.insert(Lines, LeftArm)
-
-            -- Right Arm
-            local RightArmConnection = NewLine(skeletonColor, thickness)
-            RightArmConnection.From = Vector2.new(UT.X, UT.Y)
-            RightArmConnection.To = Vector2.new(RUA.X, RUA.Y)
-            RightArmConnection.Visible = true
-            table.insert(Lines, RightArmConnection)
-            
-            local RightArm = NewLine(skeletonColor, thickness)
-            RightArm.From = Vector2.new(RUA.X, RUA.Y)
-            RightArm.To = Vector2.new(RLA.X, RLA.Y)
-            RightArm.Visible = true
-            table.insert(Lines, RightArm)
-
-            -- Left Leg
-            local LeftLegConnection = NewLine(skeletonColor, thickness)
-            LeftLegConnection.From = Vector2.new(LT.X, LT.Y)
-            LeftLegConnection.To = Vector2.new(LUL.X, LUL.Y)
-            LeftLegConnection.Visible = true
-            table.insert(Lines, LeftLegConnection)
-            
-            local LeftLeg = NewLine(skeletonColor, thickness)
-            LeftLeg.From = Vector2.new(LUL.X, LUL.Y)
-            LeftLeg.To = Vector2.new(LLL.X, LLL.Y)
-            LeftLeg.Visible = true
-            table.insert(Lines, LeftLeg)
-
-            -- Right Leg
-            local RightLegConnection = NewLine(skeletonColor, thickness)
-            RightLegConnection.From = Vector2.new(LT.X, LT.Y)
-            RightLegConnection.To = Vector2.new(RUL.X, RUL.Y)
-            RightLegConnection.Visible = true
-            table.insert(Lines, RightLegConnection)
-            
-            local RightLeg = NewLine(skeletonColor, thickness)
-            RightLeg.From = Vector2.new(RUL.X, RUL.Y)
-            RightLeg.To = Vector2.new(RLL.X, RLL.Y)
-            RightLeg.Visible = true
-            table.insert(Lines, RightLeg)
-        end
-    end
+    return parts
 end
 
-local function ClearESP()
-    -- Clear all lines
-    for i = 1, #Lines do
-        local Line = Lines[i]
-        if Line then
-            Line:Remove()
-        end
-    end
-    Lines = {}
+-- Функция для получения позиций R6 костей
+local function getR6SkeletonPoints(character)
+    local parts = {
+        Head = character:FindFirstChild("Head"),
+        Torso = character:FindFirstChild("Torso"),
+        LeftArm = character:FindFirstChild("Left Arm"),
+        RightArm = character:FindFirstChild("Right Arm"),
+        LeftLeg = character:FindFirstChild("Left Leg"),
+        RightLeg = character:FindFirstChild("Right Leg")
+    }
     
-    -- Clear all circles
-    for i = 1, #Circles do
-        local Circle = Circles[i]
-        if Circle then
-            Circle:Remove()
+    -- Проверяем наличие всех необходимых частей
+    for name, part in pairs(parts) do
+        if not part or not part:IsA("BasePart") then
+            return nil
         end
     end
-    Circles = {}
+    
+    return parts
 end
 
-local function SkeletonESP()
-    if not ESPEnabled then
-        ClearESP()
+-- Функция для рисования R15 скелета
+local function drawR15Skeleton(parts, skeleton_color, thickness, lines, circles)
+    -- Позиции частей тела
+    local positions = {}
+    for name, part in pairs(parts) do
+        local pos, onScreen = worldToScreen(part.Position)
+        if not onScreen then return false end
+        positions[name] = pos
+    end
+    
+    -- Круг для головы
+    local headCircle = NewCircle(skeleton_color, thickness, Settings.head_size)
+    headCircle.Position = positions.Head
+    headCircle.Visible = true
+    table.insert(circles, headCircle)
+    
+    -- Соединения костей R15
+    local connections = {
+        {from = "Head", to = "UpperTorso"},
+        {from = "UpperTorso", to = "LowerTorso"},
+        {from = "UpperTorso", to = "LeftUpperArm"},
+        {from = "LeftUpperArm", to = "LeftLowerArm"},
+        {from = "LeftLowerArm", to = "LeftHand"},
+        {from = "UpperTorso", to = "RightUpperArm"},
+        {from = "RightUpperArm", to = "RightLowerArm"},
+        {from = "RightLowerArm", to = "RightHand"},
+        {from = "LowerTorso", to = "LeftUpperLeg"},
+        {from = "LeftUpperLeg", to = "LeftLowerLeg"},
+        {from = "LeftLowerLeg", to = "LeftFoot"},
+        {from = "LowerTorso", to = "RightUpperLeg"},
+        {from = "RightUpperLeg", to = "RightLowerLeg"},
+        {from = "RightLowerLeg", to = "RightFoot"}
+    }
+    
+    -- Рисуем линии
+    for _, conn in ipairs(connections) do
+        if positions[conn.from] and positions[conn.to] then
+            local line = NewLine(skeleton_color, thickness)
+            line.From = positions[conn.from]
+            line.To = positions[conn.to]
+            line.Visible = true
+            table.insert(lines, line)
+        end
+    end
+    
+    return true
+end
+
+-- Функция для рисования R6 скелета
+local function drawR6Skeleton(parts, skeleton_color, thickness, lines, circles)
+    -- Вычисляем позиции для R6
+    local positions = {}
+    
+    -- Голова
+    local headPos, headOnScreen = worldToScreen(parts.Head.Position)
+    if not headOnScreen then return false end
+    positions.Head = headPos
+    
+    -- Торс
+    local t_height = parts.Torso.Size.Y/2 - 0.2
+    local upperTorsoPos, utOnScreen = worldToScreen((parts.Torso.CFrame * CFrame.new(0, t_height, 0)).Position)
+    local lowerTorsoPos, ltOnScreen = worldToScreen((parts.Torso.CFrame * CFrame.new(0, -t_height, 0)).Position)
+    if not utOnScreen or not ltOnScreen then return false end
+    positions.UpperTorso = upperTorsoPos
+    positions.LowerTorso = lowerTorsoPos
+    
+    -- Левая рука
+    local la_height = parts.LeftArm.Size.Y/2 - 0.2
+    local leftUpperArmPos, luaOnScreen = worldToScreen((parts.LeftArm.CFrame * CFrame.new(0, la_height, 0)).Position)
+    local leftLowerArmPos, llaOnScreen = worldToScreen((parts.LeftArm.CFrame * CFrame.new(0, -la_height, 0)).Position)
+    if not luaOnScreen or not llaOnScreen then return false end
+    positions.LeftUpperArm = leftUpperArmPos
+    positions.LeftLowerArm = leftLowerArmPos
+    
+    -- Правая рука
+    local ra_height = parts.RightArm.Size.Y/2 - 0.2
+    local rightUpperArmPos, ruaOnScreen = worldToScreen((parts.RightArm.CFrame * CFrame.new(0, ra_height, 0)).Position)
+    local rightLowerArmPos, rlaOnScreen = worldToScreen((parts.RightArm.CFrame * CFrame.new(0, -ra_height, 0)).Position)
+    if not ruaOnScreen or not rlaOnScreen then return false end
+    positions.RightUpperArm = rightUpperArmPos
+    positions.RightLowerArm = rightLowerArmPos
+    
+    -- Левая нога
+    local ll_height = parts.LeftLeg.Size.Y/2 - 0.2
+    local leftUpperLegPos, lulOnScreen = worldToScreen((parts.LeftLeg.CFrame * CFrame.new(0, ll_height, 0)).Position)
+    local leftLowerLegPos, lllOnScreen = worldToScreen((parts.LeftLeg.CFrame * CFrame.new(0, -ll_height, 0)).Position)
+    if not lulOnScreen or not lllOnScreen then return false end
+    positions.LeftUpperLeg = leftUpperLegPos
+    positions.LeftLowerLeg = leftLowerLegPos
+    
+    -- Правая нога
+    local rl_height = parts.RightLeg.Size.Y/2 - 0.2
+    local rightUpperLegPos, rulOnScreen = worldToScreen((parts.RightLeg.CFrame * CFrame.new(0, rl_height, 0)).Position)
+    local rightLowerLegPos, rllOnScreen = worldToScreen((parts.RightLeg.CFrame * CFrame.new(0, -rl_height, 0)).Position)
+    if not rulOnScreen or not rllOnScreen then return false end
+    positions.RightUpperLeg = rightUpperLegPos
+    positions.RightLowerLeg = rightLowerLegPos
+    
+    -- Круг для головы
+    local headCircle = NewCircle(skeleton_color, thickness, Settings.head_size)
+    headCircle.Position = positions.Head
+    headCircle.Visible = true
+    table.insert(circles, headCircle)
+    
+    -- Соединения костей R6
+    local connections = {
+        {from = "Head", to = "UpperTorso"},
+        {from = "UpperTorso", to = "LowerTorso"},
+        {from = "UpperTorso", to = "LeftUpperArm"},
+        {from = "LeftUpperArm", to = "LeftLowerArm"},
+        {from = "UpperTorso", to = "RightUpperArm"},
+        {from = "RightUpperArm", to = "RightLowerArm"},
+        {from = "LowerTorso", to = "LeftUpperLeg"},
+        {from = "LeftUpperLeg", to = "LeftLowerLeg"},
+        {from = "LowerTorso", to = "RightUpperLeg"},
+        {from = "RightUpperLeg", to = "RightLowerLeg"}
+    }
+    
+    -- Рисуем линии
+    for _, conn in ipairs(connections) do
+        if positions[conn.from] and positions[conn.to] then
+            local line = NewLine(skeleton_color, thickness)
+            line.From = positions[conn.from]
+            line.To = positions[conn.to]
+            line.Visible = true
+            table.insert(lines, line)
+        end
+    end
+    
+    return true
+end
+
+-- Логика ESP
+local function create_esp(player)
+    if player == LocalPlayer or not player.Character or not player.Character:FindFirstChild("Head") or not player.Character:FindFirstChild("HumanoidRootPart") then
         return
     end
 
-    ClearESP()
-    
-    local Players = PlayersService:GetPlayers()
-    for i = 1, #Players do
-        local Player = Players[i]
-        if HasCharacter(Player) then
-            DrawSkeletonESP(Player)
+    LoadedPlayers[player] = {
+        lines = {},
+        circles = {},
+        connection = nil
+    }
+    local plr_data = LoadedPlayers[player]
+    local character = player.Character
+    local head = character:FindFirstChild("Head")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChild("Humanoid")
+
+    plr_data.connection = RunService.RenderStepped:Connect(function()
+        if not (Settings.enabled and head and hrp and character and character.Parent and (not Settings.health_check or (humanoid and humanoid.Health > 0))) then
+            for _, line in ipairs(plr_data.lines) do
+                line.Visible = false
+            end
+            for _, circle in ipairs(plr_data.circles) do
+                circle.Visible = false
+            end
+            return
+        end
+
+        local _, onScreen = worldToScreen(head.Position)
+        if not onScreen then
+            for _, line in ipairs(plr_data.lines) do
+                line.Visible = false
+            end
+            for _, circle in ipairs(plr_data.circles) do
+                circle.Visible = false
+            end
+            return
+        end
+
+        if Settings.distancelimit and (Camera.CFrame.Position - head.Position).Magnitude > Settings.maxdistance then
+            for _, line in ipairs(plr_data.lines) do
+                line.Visible = false
+            end
+            for _, circle in ipairs(plr_data.circles) do
+                circle.Visible = false
+            end
+            return
+        end
+
+        if Settings.team_check and player.Team == LocalPlayer.Team then
+            for _, line in ipairs(plr_data.lines) do
+                line.Visible = false
+            end
+            for _, circle in ipairs(plr_data.circles) do
+                circle.Visible = false
+            end
+            return
+        end
+
+        -- Расчёт толщины линий
+        local distance = (Camera.CFrame.Position - head.Position).Magnitude
+        local thickness = Settings.skeleton_thickness
+        if Settings.auto_thickness then
+            thickness = math.clamp(1 / distance * 100, 1, 4)
+        end
+
+        -- Определение цвета
+        local skeleton_color = Settings.skeleton_color
+        if Settings.team_color and player.Team then
+            skeleton_color = player.TeamColor.Color
+        elseif Settings.team_check and player.Team ~= LocalPlayer.Team then
+            skeleton_color = Color3.fromRGB(255, 0, 0) -- Красный для врагов
+        elseif Settings.team_check and player.Team == LocalPlayer.Team then
+            skeleton_color = Color3.fromRGB(0, 255, 0) -- Зелёный для союзников
+        end
+
+        -- Очистка старых линий и кругов
+        for _, line in ipairs(plr_data.lines) do
+            line:Remove()
+        end
+        for _, circle in ipairs(plr_data.circles) do
+            circle:Remove()
+        end
+        plr_data.lines = {}
+        plr_data.circles = {}
+
+        -- Определение типа рига и рисование скелета
+        local isR15 = humanoid and humanoid.RigType == Enum.HumanoidRigType.R15
+        local success = false
+        
+        if isR15 then
+            local r15Parts = getR15SkeletonPoints(character)
+            if r15Parts then
+                success = drawR15Skeleton(r15Parts, skeleton_color, thickness, plr_data.lines, plr_data.circles)
+            end
+        else
+            local r6Parts = getR6SkeletonPoints(character)
+            if r6Parts then
+                success = drawR6Skeleton(r6Parts, skeleton_color, thickness, plr_data.lines, plr_data.circles)
+            end
+        end
+        
+        -- Если не удалось нарисовать скелет, скрываем все элементы
+        if not success then
+            for _, line in ipairs(plr_data.lines) do
+                line.Visible = false
+            end
+            for _, circle in ipairs(plr_data.circles) do
+                circle.Visible = false
+            end
+        end
+    end)
+end
+
+local function destroy_esp(player)
+    local plr_data = LoadedPlayers[player]
+    if not plr_data then return end
+    if plr_data.connection then
+        plr_data.connection:Disconnect()
+    end
+    for _, line in ipairs(plr_data.lines) do
+        if line then
+            line:Remove()
+        end
+    end
+    for _, circle in ipairs(plr_data.circles) do
+        if circle then
+            circle:Remove()
+        end
+    end
+    LoadedPlayers[player] = nil
+end
+
+-- Инициализация ESP для текущих игроков
+for _, player in ipairs(Players:GetPlayers()) do
+    create_esp(player)
+end
+
+-- Обработка добавления и удаления игроков
+Players.PlayerAdded:Connect(create_esp)
+Players.PlayerRemoving:Connect(destroy_esp)
+
+-- Глобальные функции для включения/выключения ESP
+_G.EnableSkeletonESP = function()
+    Settings.enabled = true
+end
+
+_G.DisableSkeletonESP = function()
+    Settings.enabled = false
+    for _, plr_data in pairs(LoadedPlayers) do
+        for _, line in ipairs(plr_data.lines) do
+            if line then
+                line.Visible = false
+            end
+        end
+        for _, circle in ipairs(plr_data.circles) do
+            if circle then
+                circle.Visible = false
+            end
         end
     end
 end
 
--- Main connection
-if ESPConnection then
-    ESPConnection:Disconnect()
-end
-
-ESPConnection = RunService.RenderStepped:Connect(SkeletonESP)
-
--- Global function to disable ESP
-_G.DisableSkeletonESP = function()
-    ESPEnabled = false
-    ClearESP()
-end
-
--- Global function to enable ESP
-_G.EnableSkeletonESP = function()
-    ESPEnabled = true
-end
-
--- Cleanup function
 _G.CleanupSkeletonESP = function()
-    if ESPConnection then
-        ESPConnection:Disconnect()
-        ESPConnection = nil
+    local players_to_clean = {}
+    for player, _ in pairs(LoadedPlayers) do
+        table.insert(players_to_clean, player)
     end
-    ClearESP()
+    for _, player in ipairs(players_to_clean) do
+        destroy_esp(player)
+    end
 end
+
+-- Очистка при завершении скрипта
+game:BindToClose(function()
+    _G.CleanupSkeletonESP()
+end)

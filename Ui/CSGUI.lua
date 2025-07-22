@@ -105,6 +105,62 @@ CombatGroupBox:AddDropdown("HitboxPart", {
 	end,
 })
 
+-- Long Neck
+CombatGroupBox:AddLabel("Long Neck")
+
+local LongNeckToggle = CombatGroupBox:AddToggle("LongNeckToggle", {
+	Default = false,
+	Text = "Enable Long Neck",
+	Tooltip = "Extends your neck for better view",
+
+	Callback = function(Value)
+		if Value then
+			local success, err = pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/longneck"))()
+				if _G.EnableLongNeck then 
+					_G.EnableLongNeck() 
+				end
+			end)
+			if success then
+				Library:Notify({ Title = "Long Neck", Description = "Long Neck enabled!", Time = 2 })
+			else
+				Library:Notify({ Title = "Long Neck", Description = "Failed to load Long Neck: " .. tostring(err), Time = 3 })
+			end
+		else
+			if _G.DisableLongNeck then 
+				_G.DisableLongNeck() 
+			end
+			Library:Notify({ Title = "Long Neck", Description = "Long Neck disabled", Time = 2 })
+		end
+	end,
+})
+
+-- Add keybind to the toggle
+local LongNeckKeybind = LongNeckToggle:AddKeyPicker("LongNeckKeybind", {
+	Default = "E",
+	Text = "Long Neck Keybind",
+	Mode = "Toggle",
+	SyncToggleState = true,
+	Callback = function(Value)
+		if _G.SetLongNeckKeybind and Options.LongNeckKeybind.Value then
+			_G.SetLongNeckKeybind(Options.LongNeckKeybind.Value)
+		end
+	end
+})
+
+CombatGroupBox:AddSlider("LongNeckOffset", {
+	Text = "Neck Length",
+	Default = 5,
+	Min = 1,
+	Max = 15,
+	Rounding = 1,
+	Callback = function(Value)
+		if _G.SetLongNeckOffset then 
+			_G.SetLongNeckOffset(Value) 
+		end
+	end,
+})
+
 -- Visuals
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
@@ -308,7 +364,8 @@ MenuGroup:AddButton({
 			"CleanupWatermark",
 			"CleanupVisualSpinbot",
 			"CleanupHitboxExpander",
-			"CleanupBeterSlide"
+			"CleanupBeterSlide",
+			"CleanupLongNeck"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -331,7 +388,8 @@ Library:OnUnload(function()
 		"CleanupWatermark",
 		"CleanupVisualSpinbot",
 		"CleanupHitboxExpander",
-		"CleanupBeterSlide"
+		"CleanupBeterSlide",
+		"CleanupLongNeck"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

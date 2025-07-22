@@ -408,7 +408,29 @@ _G.CleanupSkeletonESP = function()
     end
 end
 
--- Очистка при завершении скрипта
-game:BindToClose(function()
-    _G.CleanupSkeletonESP()
+-- Автоматическая очистка при респавне игроков
+Players.PlayerRemoving:Connect(destroy_esp)
+
+-- Обработка респавна персонажей
+local function onCharacterAdded(player, character)
+    if LoadedPlayers[player] then
+        destroy_esp(player)
+    end
+    wait(0.1) -- Небольшая задержка для полной загрузки персонажа
+    create_esp(player)
+end
+
+-- Подключение обработчика респавна для всех игроков
+for _, player in ipairs(Players:GetPlayers()) do
+    if player.Character then
+        player.CharacterAdded:Connect(function(character)
+            onCharacterAdded(player, character)
+        end)
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        onCharacterAdded(player, character)
+    end)
 end)

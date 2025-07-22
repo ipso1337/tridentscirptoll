@@ -105,8 +105,6 @@ CombatGroupBox:AddDropdown("HitboxPart", {
 	end,
 })
 
--- Add this code to your main GUI script after the Hitbox Expander section
-
 -- Long Neck
 CombatGroupBox:AddLabel("Long Neck")
 
@@ -137,7 +135,7 @@ local LongNeckToggle = CombatGroupBox:AddToggle("LongNeckToggle", {
 	end,
 })
 
--- Add keybind to the toggle using your example pattern
+-- Add keybind to the toggle
 local LongNeckKeybind = LongNeckToggle:AddKeyPicker("LongNeckKeybind", {
 	Default = "E",
 	Text = "Long Neck Keybind",
@@ -150,6 +148,18 @@ local LongNeckKeybind = LongNeckToggle:AddKeyPicker("LongNeckKeybind", {
 	end
 })
 
+CombatGroupBox:AddSlider("LongNeckOffset", {
+	Text = "Neck Length",
+	Default = 5,
+	Min = 1,
+	Max = 15,
+	Rounding = 1,
+	Callback = function(Value)
+		if _G.SetLongNeckOffset then 
+			_G.SetLongNeckOffset(Value) 
+		end
+	end,
+})
 
 -- Visuals
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
@@ -354,8 +364,8 @@ MenuGroup:AddButton({
 			"CleanupWatermark",
 			"CleanupVisualSpinbot",
 			"CleanupHitboxExpander",
-			"CleanupBeterSlide"
-			"CleanupLongNeck"	
+			"CleanupBeterSlide",
+			"CleanupLongNeck"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -378,8 +388,8 @@ Library:OnUnload(function()
 		"CleanupWatermark",
 		"CleanupVisualSpinbot",
 		"CleanupHitboxExpander",
-		"CleanupBeterSlide"
-		"CleanupLongNeck"	
+		"CleanupBeterSlide",
+		"CleanupLongNeck"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

@@ -1,553 +1,320 @@
-
 -- Services
-
-
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
 
+-- Hardcoded 3D Box ESP Settings
+local box3d_esp_settings = {
+    enabled = true, -- Master toggle for 3D Box ESP
+    line_color = Color3.new(1, 1, 1), -- White
+    line_transparency = 0, -- 0 = fully opaque, 1 = fully transparent
+    line_thickness = 1, -- Line thickness
+    quad_color = Color3.new(1, 1, 1), -- White
+    quad_transparency = 0.75, -- Semi-transparent (0.25 visible)
+    quad_filled = true, -- Enable filled quads
+    teamcheck = false, -- Disable team check
+    team_color = false, -- Use team colors
+    maxdistance = 200, -- Maximum distance for ESP rendering
+    distancelimit = false, -- Disable distance limit
+    box_size = Vector3.new(3, 5, 3), -- Box dimensions (width, height, depth)
+    box_offset = Vector3.new(0, -0.5, 0) -- Box position offset from HRP
+}
 
-local PlayersService = game:GetService("Players")
-
-
-
-
--- Variables
-
-
-local Camera = workspace.CurrentCamera
-
-
-local LocalPlayer = PlayersService.LocalPlayer
-
-
-local Lines = {}
-
-
-local Quads = {}
-
-
-local ESPConnection = nil
-
-
-local ESPEnabled = true
-
-
-
-
-
--- Functions
-
-
-local function HasCharacter(Player)
-
-
-    return Player and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player ~= LocalPlayer
-
-
+-- Utility Functions
+local function worldToScreen(world)
+    local screen, inBounds = Camera:WorldToViewportPoint(world)
+    return Vector2.new(screen.X, screen.Y), inBounds, screen.Z
 end
 
-
-
-
-
-local function DrawQuad(PosA, PosB, PosC, PosD)
-
-
-    local PosAScreen, PosAVisible = Camera:WorldToViewportPoint(PosA)
-
-
-    local PosBScreen, PosBVisible = Camera:WorldToViewportPoint(PosB)
-
-
-    local PosCScreen, PosCVisible = Camera:WorldToViewportPoint(PosC)
-
-
-    local PosDScreen, PosDVisible = Camera:WorldToViewportPoint(PosD)
-
-
-
-
-
-    if not PosAVisible and not PosBVisible and not PosCVisible and not PosDVisible then
-
-
-        return
-
-
-    end
-
-
-
-
-
-    local PosAVec = Vector2.new(PosAScreen.X, PosAScreen.Y)
-
-
-    local PosBVec = Vector2.new(PosBScreen.X, PosBScreen.Y)
-
-
-    local PosCVec = Vector2.new(PosCScreen.X, PosCScreen.Y)
-
-
-    local PosDVec = Vector2.new(PosDScreen.X, PosDScreen.Y)
-
-
-
-
-
-    local Quad = Drawing.new("Quad")
-
-
-    Quad.Thickness = 0.5
-
-
-    Quad.Color = Color3.fromRGB(255, 255, 255)
-
-
-    Quad.Transparency = 0.25
-
-
-    Quad.ZIndex = 1
-
-
-    Quad.Filled = true
-
-
-    Quad.Visible = true
-
-
-
-
-
-    Quad.PointA = PosAVec
-
-
-    Quad.PointB = PosBVec
-
-
-    Quad.PointC = PosCVec
-
-
-    Quad.PointD = PosDVec
-
-
-
-
-
-    table.insert(Quads, Quad)
-
-
-end
-
-
-
-
-
-local function DrawLine(From, To)
-
-
-    local FromScreen, FromVisible = Camera:WorldToViewportPoint(From)
-
-
-    local ToScreen, ToVisible = Camera:WorldToViewportPoint(To)
-
-
-
-
-
-    if not FromVisible and not ToVisible then
-
-
-        return
-
-
-    end
-
-
-
-
-
-    local FromPos = Vector2.new(FromScreen.X, FromScreen.Y)
-
-
-    local ToPos = Vector2.new(ToScreen.X, ToScreen.Y)
-
-
-
-
-
-    local Line = Drawing.new("Line")
-
-
-    Line.Thickness = 1
-
-
-    Line.From = FromPos
-
-
-    Line.To = ToPos
-
-
-    Line.Color = Color3.fromRGB(255, 255, 255)
-
-
-    Line.Transparency = 1
-
-
-    Line.ZIndex = 1
-
-
-    Line.Visible = true
-
-
-
-
-
-    table.insert(Lines, Line)
-
-
-end
-
-
-
-
-
--- Get corners function (vertices)
-
-
-local function GetCorners(Part)
-
-
-    local CF, Size, Corners = Part.CFrame, Part.Size / 2, {}
-
-
-    for X = -1, 1, 2 do
-
-
-        for Y = -1, 1, 2 do
-
-
-            for Z = -1, 1, 2 do
-
-
-                Corners[#Corners + 1] = (CF * CFrame.new(Size * Vector3.new(X, Y, Z))).Position
-
-
+local function getCorners(cframe, size)
+    local corners = {}
+    local halfSize = size / 2
+    for x = -1, 1, 2 do
+        for y = -1, 1, 2 do
+            for z = -1, 1, 2 do
+                corners[#corners + 1] = (cframe * CFrame.new(halfSize * Vector3.new(x, y, z))).Position
             end
-
-
         end
-
-
     end
-
-
-    return Corners
-
-
+    return corners
 end
 
-
-
-
-
-local function DrawEsp(Player)
-
-
-    if not HasCharacter(Player) then return end
-
-
-    
-
-
-    local HRP = Player.Character.HumanoidRootPart
-
-
-
-
-
-    -- Construct 3D box
-
-
-    local CubeVertices = GetCorners({
-
-
-        CFrame = HRP.CFrame * CFrame.new(0, -0.5, 0), 
-
-
-        Size = Vector3.new(3, 5, 3)
-
-
-    })
-
-
-
-
-
-    -- Draw the 3D box
-
-
-    -- Bottom face
-
-
-    DrawLine(CubeVertices[1], CubeVertices[2])
-
-
-    DrawLine(CubeVertices[2], CubeVertices[6])
-
-
-    DrawLine(CubeVertices[6], CubeVertices[5])
-
-
-    DrawLine(CubeVertices[5], CubeVertices[1])
-
-
-    DrawQuad(CubeVertices[1], CubeVertices[2], CubeVertices[6], CubeVertices[5])
-
-
-
-
-
-    -- Side faces
-
-
-    DrawLine(CubeVertices[1], CubeVertices[3])
-
-
-    DrawLine(CubeVertices[2], CubeVertices[4])
-
-
-    DrawLine(CubeVertices[6], CubeVertices[8])
-
-
-    DrawLine(CubeVertices[5], CubeVertices[7])
-
-
-
-
-
-    DrawQuad(CubeVertices[2], CubeVertices[4], CubeVertices[8], CubeVertices[6])
-
-
-    DrawQuad(CubeVertices[1], CubeVertices[2], CubeVertices[4], CubeVertices[3])
-
-
-    DrawQuad(CubeVertices[1], CubeVertices[5], CubeVertices[7], CubeVertices[3])
-
-
-    DrawQuad(CubeVertices[5], CubeVertices[7], CubeVertices[8], CubeVertices[6])
-
-
-
-
-
-    -- Top face
-
-
-    DrawLine(CubeVertices[3], CubeVertices[4])
-
-
-    DrawLine(CubeVertices[4], CubeVertices[8])
-
-
-    DrawLine(CubeVertices[8], CubeVertices[7])
-
-
-    DrawLine(CubeVertices[7], CubeVertices[3])
-
-
-    DrawQuad(CubeVertices[3], CubeVertices[4], CubeVertices[8], CubeVertices[7])
-
-
+local function createLine(color, thickness)
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.From = Vector2.new(0, 0)
+    line.To = Vector2.new(0, 0)
+    line.Color = color
+    line.Thickness = thickness
+    line.Transparency = 1 - box3d_esp_settings.line_transparency
+    line.ZIndex = 1
+    return line
 end
 
-
-
-
-
-local function ClearESP()
-
-
-    -- Clear lines
-
-
-    for i = 1, #Lines do
-
-
-        local Line = Lines[i]
-
-
-        if Line then
-
-
-            Line:Remove()
-
-
-        end
-
-
-    end
-
-
-    Lines = {}
-
-
-
-
-
-    -- Clear quads
-
-
-    for i = 1, #Quads do
-
-
-        local Quad = Quads[i]
-
-
-        if Quad then
-
-
-            Quad:Remove()
-
-
-        end
-
-
-    end
-
-
-    Quads = {}
-
-
+local function createQuad(color, transparency, filled)
+    local quad = Drawing.new("Quad")
+    quad.Visible = false
+    quad.PointA = Vector2.new(0, 0)
+    quad.PointB = Vector2.new(0, 0)
+    quad.PointC = Vector2.new(0, 0)
+    quad.PointD = Vector2.new(0, 0)
+    quad.Color = color
+    quad.Transparency = transparency
+    quad.Filled = filled
+    quad.Thickness = 0.5
+    quad.ZIndex = 1
+    return quad
 end
 
+-- 3D Box ESP Management
+local loaded_players = {}
 
-
-
-
-local function BoxESP()
-
-
-    if not ESPEnabled then
-
-
-        ClearESP()
-
-
+local function create_box3d_esp(model)
+    if not (model and model:FindFirstChild("HumanoidRootPart")) then
         return
-
-
     end
-
-
-
-
-
-    ClearESP()
-
-
     
+    -- Find player object for team checks
+    local player = nil
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character == model then
+            player = p
+            break
+        end
+    end
+    
+    loaded_players[model] = {
+        player = player,
+        obj = {
+            -- 12 lines for the wireframe
+            lines = {
+                -- Bottom face (4 lines)
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                -- Vertical lines (4 lines)
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                -- Top face (4 lines)
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness),
+                createLine(box3d_esp_settings.line_color, box3d_esp_settings.line_thickness)
+            },
+            -- 6 quads for the faces
+            quads = {
+                -- Bottom, Top, Front, Back, Left, Right
+                createQuad(box3d_esp_settings.quad_color, box3d_esp_settings.quad_transparency, box3d_esp_settings.quad_filled),
+                createQuad(box3d_esp_settings.quad_color, box3d_esp_settings.quad_transparency, box3d_esp_settings.quad_filled),
+                createQuad(box3d_esp_settings.quad_color, box3d_esp_settings.quad_transparency, box3d_esp_settings.quad_filled),
+                createQuad(box3d_esp_settings.quad_color, box3d_esp_settings.quad_transparency, box3d_esp_settings.quad_filled),
+                createQuad(box3d_esp_settings.quad_color, box3d_esp_settings.quad_transparency, box3d_esp_settings.quad_filled),
+                createQuad(box3d_esp_settings.quad_color, box3d_esp_settings.quad_transparency, box3d_esp_settings.quad_filled)
+            }
+        },
+        connection = nil
+    }
+    
+    local plr_data = loaded_players[model]
+    local obj = plr_data.obj
+    local character = model
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    local humanoid = model:FindFirstChild("Humanoid")
 
-
-    local Players = PlayersService:GetPlayers()
-
-
-    for i = 1, #Players do
-
-
-        local Player = Players[i]
-
-
-        if HasCharacter(Player) then
-
-
-            DrawEsp(Player)
-
-
+    plr_data.connection = RunService.RenderStepped:Connect(function()
+        if not (box3d_esp_settings.enabled and hrp and character and character.Parent) then
+            for _, line in pairs(obj.lines) do
+                line.Visible = false
+            end
+            for _, quad in pairs(obj.quads) do
+                quad.Visible = false
+            end
+            return
+        end
+        
+        -- Check if character is alive
+        if humanoid and humanoid.Health <= 0 then
+            for _, line in pairs(obj.lines) do
+                line.Visible = false
+            end
+            for _, quad in pairs(obj.quads) do
+                quad.Visible = false
+            end
+            return
         end
 
+        local _, onScreen = worldToScreen(hrp.Position)
+        if not onScreen then
+            for _, line in pairs(obj.lines) do
+                line.Visible = false
+            end
+            for _, quad in pairs(obj.quads) do
+                quad.Visible = false
+            end
+            return
+        end
 
+        -- Distance check
+        local distance = (Camera.CFrame.Position - hrp.Position).Magnitude
+        if box3d_esp_settings.distancelimit and distance > box3d_esp_settings.maxdistance then
+            for _, line in pairs(obj.lines) do
+                line.Visible = false
+            end
+            for _, quad in pairs(obj.quads) do
+                quad.Visible = false
+            end
+            return
+        end
+
+        -- Team check
+        if box3d_esp_settings.teamcheck and plr_data.player and Players.LocalPlayer then
+            if plr_data.player.Team == Players.LocalPlayer.Team then
+                for _, line in pairs(obj.lines) do
+                    line.Visible = false
+                end
+                for _, quad in pairs(obj.quads) do
+                    quad.Visible = false
+                end
+                return
+            end
+        end
+
+        -- Calculate 3D box corners
+        local boxCFrame = hrp.CFrame * CFrame.new(box3d_esp_settings.box_offset)
+        local corners = getCorners(boxCFrame, box3d_esp_settings.box_size)
+        
+        -- Convert all corners to screen space
+        local screenCorners = {}
+        local anyVisible = false
+        for i, corner in ipairs(corners) do
+            local screen, visible = worldToScreen(corner)
+            screenCorners[i] = screen
+            if visible then anyVisible = true end
+        end
+        
+        if not anyVisible then
+            for _, line in pairs(obj.lines) do
+                line.Visible = false
+            end
+            for _, quad in pairs(obj.quads) do
+                quad.Visible = false
+            end
+            return
+        end
+
+        -- Determine color
+        local lineColor = box3d_esp_settings.line_color
+        local quadColor = box3d_esp_settings.quad_color
+        if box3d_esp_settings.team_color and plr_data.player and plr_data.player.TeamColor then
+            lineColor = plr_data.player.TeamColor.Color
+            quadColor = plr_data.player.TeamColor.Color
+        end
+
+        -- Update all lines and quads with new properties
+        for _, line in pairs(obj.lines) do
+            line.Color = lineColor
+            line.Transparency = 1 - box3d_esp_settings.line_transparency
+        end
+        for _, quad in pairs(obj.quads) do
+            quad.Color = quadColor
+            quad.Transparency = box3d_esp_settings.quad_transparency
+        end
+
+        -- Draw wireframe lines
+        local lines = obj.lines
+        local line_idx = 1
+        
+        -- Bottom face (vertices 1,2,6,5)
+        lines[line_idx].From = screenCorners[1]; lines[line_idx].To = screenCorners[2]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        lines[line_idx].From = screenCorners[2]; lines[line_idx].To = screenCorners[6]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        lines[line_idx].From = screenCorners[6]; lines[line_idx].To = screenCorners[5]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        lines[line_idx].From = screenCorners[5]; lines[line_idx].To = screenCorners[1]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        
+        -- Vertical lines
+        lines[line_idx].From = screenCorners[1]; lines[line_idx].To = screenCorners[3]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        lines[line_idx].From = screenCorners[2]; lines[line_idx].To = screenCorners[4]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        lines[line_idx].From = screenCorners[6]; lines[line_idx].To = screenCorners[8]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        lines[line_idx].From = screenCorners[5]; lines[line_idx].To = screenCorners[7]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        
+        -- Top face (vertices 3,4,8,7)
+        lines[line_idx].From = screenCorners[3]; lines[line_idx].To = screenCorners[4]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        lines[line_idx].From = screenCorners[4]; lines[line_idx].To = screenCorners[8]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        lines[line_idx].From = screenCorners[8]; lines[line_idx].To = screenCorners[7]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+        lines[line_idx].From = screenCorners[7]; lines[line_idx].To = screenCorners[3]; lines[line_idx].Visible = true; line_idx = line_idx + 1
+
+        -- Draw filled faces (quads)
+        local quads = obj.quads
+        
+        -- Bottom face
+        quads[1].PointA = screenCorners[1]; quads[1].PointB = screenCorners[2]; quads[1].PointC = screenCorners[6]; quads[1].PointD = screenCorners[5]; quads[1].Visible = true
+        
+        -- Top face
+        quads[2].PointA = screenCorners[3]; quads[2].PointB = screenCorners[4]; quads[2].PointC = screenCorners[8]; quads[2].PointD = screenCorners[7]; quads[2].Visible = true
+        
+        -- Front face
+        quads[3].PointA = screenCorners[2]; quads[3].PointB = screenCorners[4]; quads[3].PointC = screenCorners[8]; quads[3].PointD = screenCorners[6]; quads[3].Visible = true
+        
+        -- Back face
+        quads[4].PointA = screenCorners[1]; quads[4].PointB = screenCorners[2]; quads[4].PointC = screenCorners[4]; quads[4].PointD = screenCorners[3]; quads[4].Visible = true
+        
+        -- Left face
+        quads[5].PointA = screenCorners[1]; quads[5].PointB = screenCorners[5]; quads[5].PointC = screenCorners[7]; quads[5].PointD = screenCorners[3]; quads[5].Visible = true
+        
+        -- Right face
+        quads[6].PointA = screenCorners[5]; quads[6].PointB = screenCorners[7]; quads[6].PointC = screenCorners[8]; quads[6].PointD = screenCorners[6]; quads[6].Visible = true
+    end)
+end
+
+local function destroy_box3d_esp(model)
+    local plr_data = loaded_players[model]
+    if not plr_data then return end
+    
+    if plr_data.connection then
+        plr_data.connection:Disconnect()
     end
-
-
+    
+    for _, line in pairs(plr_data.obj.lines) do
+        line:Remove()
+    end
+    
+    for _, quad in pairs(plr_data.obj.quads) do
+        quad:Remove()
+    end
+    
+    loaded_players[model] = nil
 end
 
-
-
-
-
--- Main connection
-
-
-if ESPConnection then
-
-
-    ESPConnection:Disconnect()
-
-
+-- Initialize 3D Box ESP for existing players
+for _, v in ipairs(Workspace:GetChildren()) do
+    create_box3d_esp(v)
 end
 
+-- Handle player addition and removal
+Workspace.ChildAdded:Connect(create_box3d_esp)
+Workspace.ChildRemoved:Connect(destroy_box3d_esp)
 
-
-
-
-ESPConnection = RunService.RenderStepped:Connect(BoxESP)
-
-
-
-
-
--- Global function to disable ESP (called when "none" is selected)
-
-
+-- Global functions for external control
 _G.DisableBoxESP = function()
-
-
-    ESPEnabled = false
-
-
-    ClearESP()
-
-
+    box3d_esp_settings.enabled = false
 end
-
-
-
-
-
--- Global function to enable ESP (called when "3d" is selected)
-
 
 _G.EnableBoxESP = function()
-
-
-    ESPEnabled = true
-
-
+    box3d_esp_settings.enabled = true
 end
-
-
-
-
-
--- Cleanup function
-
 
 _G.CleanupBoxESP = function()
-
-
-    if ESPConnection then
-
-
-        ESPConnection:Disconnect()
-
-
-        ESPConnection = nil
-
-
+    for model, plr_data in pairs(loaded_players) do
+        destroy_box3d_esp(model)
     end
-
-
-    ClearESP()
-
-
 end
+
+-- Cleanup on script termination
+game:BindToClose(function()
+    for model, plr_data in pairs(loaded_players) do
+        destroy_box3d_esp(model)
+    end
+end)

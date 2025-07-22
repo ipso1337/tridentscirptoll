@@ -1,157 +1,129 @@
--- Long Neck Combat System for Trident Survival
-local longNeckEnabled = false
-local originalCFrame = nil
-local heartbeatConnection = nil
+-- Long Neck Script for Trident
+-- This script should be saved as longneck.lua in your GitHub repository
 
--- Services
 local workspace = cloneref(game:GetService("Workspace"))
 local RunService = cloneref(game:GetService("RunService"))
 local UserInputService = cloneref(game:GetService("UserInputService"))
-local Players = cloneref(game:GetService("Players"))
 
--- Global functions
-_G.EnableLongNeck = nil
-_G.DisableLongNeck = nil
-_G.CleanupLongNeck = nil
-_G.ToggleLongNeck = nil
+-- Global variables for external control
+_G.LongNeckEnabled = _G.LongNeckEnabled or false
+_G.LongNeckKeybind = _G.LongNeckKeybind or Enum.KeyCode.E
+_G.LongNeckOffset = _G.LongNeckOffset or 5
 
--- Get the correct character part for Trident Survival
-local function GetTopPart()
-    if workspace:FindFirstChild("Const") and 
-       workspace.Const:FindFirstChild("Ignore") and 
-       workspace.Const.Ignore:FindFirstChild("LocalCharacter") then
-        local localCharacter = workspace.Const.Ignore.LocalCharacter
-        local top = localCharacter:FindFirstChild("Top")
-        if top and top:FindFirstChild("Prism1") then
-            return top.Prism1
-        end
-    end
-    return nil
-end
+-- Trident Setup
+local trident = {
+    loaded = false,
+    lastpos = nil,
+    middlepart = nil,
+    tcp = nil,
+    original_model = nil,
+    top = nil,
+    originalprismcframe = nil
+}
 
--- Wait for character to load
-local function WaitForCharacter()
-    local prism = nil
+-- Wait for required game objects
+local function waitForGameObjects()
     repeat
-        task.wait(0.5)
-        prism = GetTopPart()
-    until prism
-    return prism
-end
-
--- Main Long Neck logic
-local function ApplyLongNeck()
-    local prism = GetTopPart()
-    if prism and originalCFrame then
-        prism.CFrame = originalCFrame - Vector3.new(0, 5, 0)
+        local success, result = pcall(function()
+            trident.middlepart = workspace.Const.Ignore.LocalCharacter.Middle
+            trident.original_model = game:GetService("ReplicatedStorage").Shared.entities.Player.Model
+            trident.top = workspace.Const.Ignore.LocalCharacter.Top
+            trident.tcp = game:GetService("Players").LocalPlayer.TCP
+        end)
+        if not success then
+            print("Waiting for game objects... Error: ", result)
+            task.wait(0.5)
+        end
+    until trident.middlepart and trident.original_model and trident.top and trident.tcp
+    
+    -- Store original CFrame
+    if trident.top and trident.top.Prism1 then
+        trident.originalprismcframe = trident.top.Prism1.CFrame
+        trident.loaded = true
     end
 end
 
--- Heartbeat loop to maintain CFrame
-local function LongNeckLoop()
-    if longNeckEnabled then
-        ApplyLongNeck()
+-- Long Neck Functions
+local heartbeatConnection
+
+function _G.EnableLongNeck()
+    if not trident.loaded then
+        waitForGameObjects()
+    end
+    
+    _G.LongNeckEnabled = true
+    
+    -- Apply long neck immediately
+    if trident.top and trident.top.Prism1 and trident.originalprismcframe then
+        trident.top.Prism1.CFrame = trident.originalprismcframe - Vector3.yAxis * _G.LongNeckOffset
+    end
+    
+    -- Start heartbeat connection if not already running
+    if not heartbeatConnection then
+        heartbeatConnection = RunService.Heartbeat:Connect(function()
+            if _G.LongNeckEnabled and trident.top and trident.top.Prism1 and trident.originalprismcframe then
+                trident.top.Prism1.CFrame = trident.originalprismcframe - Vector3.yAxis * _G.LongNeckOffset
+            elseif not _G.LongNeckEnabled and trident.top and trident.top.Prism1 and trident.originalprismcframe then
+                trident.top.Prism1.CFrame = trident.originalprismcframe
+            end
+        end)
     end
 end
 
--- Enable Long Neck function
-local function EnableLongNeck()
-    if longNeckEnabled then
-        return -- Already enabled
+function _G.DisableLongNeck()
+    _G.LongNeckEnabled = false
+    
+    -- Revert to original CFrame
+    if trident.top and trident.top.Prism1 and trident.originalprismcframe then
+        trident.top.Prism1.CFrame = trident.originalprismcframe
     end
-    
-    -- Wait for character to be ready
-    local prism = WaitForCharacter()
-    if not prism then
-        print("❌ Failed to find character - Long Neck cannot be enabled")
-        return
-    end
-    
-    -- Store original CFrame if not already stored
-    if not originalCFrame then
-        originalCFrame = prism.CFrame
-    end
-    
-    longNeckEnabled = true
-    
-    -- Connect heartbeat loop
-    if heartbeatConnection then
-        heartbeatConnection:Disconnect()
-    end
-    heartbeatConnection = RunService.Heartbeat:Connect(LongNeckLoop)
-    
-    -- Apply immediately
-    ApplyLongNeck()
-    
-    print("✅ Long Neck enabled")
 end
 
--- Disable Long Neck function
-local function DisableLongNeck()
-    longNeckEnabled = false
+function _G.SetLongNeckOffset(offset)
+    _G.LongNeckOffset = offset
+    
+    -- Apply new offset if enabled
+    if _G.LongNeckEnabled and trident.top and trident.top.Prism1 and trident.originalprismcframe then
+        trident.top.Prism1.CFrame = trident.originalprismcframe - Vector3.yAxis * _G.LongNeckOffset
+    end
+end
+
+function _G.SetLongNeckKeybind(keycode)
+    _G.LongNeckKeybind = keycode
+end
+
+function _G.CleanupLongNeck()
+    _G.DisableLongNeck()
     
     if heartbeatConnection then
         heartbeatConnection:Disconnect()
         heartbeatConnection = nil
     end
     
-    -- Restore original CFrame
-    local prism = GetTopPart()
-    if prism and originalCFrame then
-        prism.CFrame = originalCFrame
-    end
-    
-    print("❌ Long Neck disabled")
+    -- Reset global variables
+    _G.LongNeckEnabled = false
+    _G.LongNeckKeybind = Enum.KeyCode.E
+    _G.LongNeckOffset = 5
 end
 
--- Toggle Long Neck function
-local function ToggleLongNeck()
-    if longNeckEnabled then
-        DisableLongNeck()
-    else
-        EnableLongNeck()
-    end
+-- Keybind handler
+local keybindConnection
+if not keybindConnection then
+    keybindConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.KeyCode == _G.LongNeckKeybind then
+            if _G.LongNeckEnabled then
+                _G.DisableLongNeck()
+            else
+                _G.EnableLongNeck()
+            end
+        end
+    end)
 end
 
--- Cleanup function
-local function CleanupLongNeck()
-    DisableLongNeck()
-    
-    -- Clear global functions
-    _G.EnableLongNeck = nil
-    _G.DisableLongNeck = nil
-    _G.CleanupLongNeck = nil
-    _G.ToggleLongNeck = nil
-    
-    -- Reset variables
-    originalCFrame = nil
-    
-    print("🧹 Long Neck cleaned up")
-end
+-- Initialize the script
+waitForGameObjects()
 
--- Keybind setup (E key toggle)
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    
-    if input.KeyCode == Enum.KeyCode.E then
-        ToggleLongNeck()
-    end
-end)
-
--- Assign global functions
-_G.EnableLongNeck = EnableLongNeck
-_G.DisableLongNeck = DisableLongNeck
-_G.CleanupLongNeck = CleanupLongNeck
-_G.ToggleLongNeck = ToggleLongNeck
-
-print("🦒 Long Neck Combat System loaded for Trident Survival!")
-print("📋 Available functions:")
-print("   • _G.EnableLongNeck()")
-print("   • _G.DisableLongNeck()")
-print("   • _G.ToggleLongNeck()")
-print("   • _G.CleanupLongNeck()")
-print("")
-print("🎮 How to use:")
-print("   • Press E to toggle Long Neck on/off")
-print("   • Or use the GUI toggle")
-print("   • Long Neck extends your character's reach for combat")
+print("Long Neck script loaded successfully!")
+print("Press " .. tostring(_G.LongNeckKeybind) .. " to toggle Long Neck")

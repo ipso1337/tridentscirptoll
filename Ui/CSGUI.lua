@@ -95,7 +95,7 @@ CombatGroupBox:AddSlider("AimbotShake", {
 })
 
 CombatGroupBox:AddDropdown("AimbotPart", {
-	Values = { "Head", "UpperTorso", "HumanoidRootPart" },
+	Values = { "Head", "Torso", "LowerTorso", "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm", "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot", "HumanoidRootPart" },
 	Default = 1,
 	Multi = false,
 	Text = "Hit Part",

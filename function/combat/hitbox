@@ -1,208 +1,239 @@
--- Fixed Hitbox Expander Script
-local workspace = cloneref and cloneref(game:GetService("Workspace")) or game:GetService("Workspace")
-local Players = cloneref and cloneref(game:GetService("Players")) or game:GetService("Players")
-local RunService = cloneref and cloneref(game:GetService("RunService")) or game:GetService("RunService")
+-- Hitbox Expander Module
+-- GitHub: https://github.com/ipso1337/tridentscirptoll/blob/main/function/combat/hitbox
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 
--- Hitbox expander variables
-local hitboxExpander = {
+-- Global variables for external control
+_G.HitboxSettings = _G.HitboxSettings or {
     enabled = false,
-    connections = {},
-    validCharacters = {},
-    originalSizes = {},
-    settings = {
-        headSizeX = 10,
-        headSizeY = 10,
-        headSizeZ = 10,
-        transparency = 0.5,
-        canCollide = false,
-        targetPart = "Head"
-    }
+    size = Vector3.new(10, 10, 10),
+    transparency = 0.5,
+    canCollide = false,
+    targetPart = "Head"
 }
 
--- Helper function to get all players except local player
-local function getAllEnemyPlayers()
-    local enemies = {}
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            table.insert(enemies, player.Character)
-        end
-    end
-    return enemies
-end
+-- Internal variables
+local connections = {}
+local originalSizes = {}
+local originalTransparencies = {}
+local originalCanCollide = {}
+local validTargets = {}
 
--- Function to store original size of a part
-local function storeOriginalSize(part)
-    if not hitboxExpander.originalSizes[part] then
-        hitboxExpander.originalSizes[part] = {
-            size = part.Size,
-            transparency = part.Transparency,
-            canCollide = part.CanCollide
-        }
-    end
-end
-
--- Function to restore original size of a part
-local function restoreOriginalSize(part)
-    if hitboxExpander.originalSizes[part] then
-        part.Size = hitboxExpander.originalSizes[part].size
-        part.Transparency = hitboxExpander.originalSizes[part].transparency
-        part.CanCollide = hitboxExpander.originalSizes[part].canCollide
-        hitboxExpander.originalSizes[part] = nil
-    end
-end
-
--- Function to expand hitboxes
-local function expandHitboxes()
-    if not hitboxExpander.enabled then return end
+-- Utility functions
+local function isValidTarget(character)
+    if not character then return false end
+    if character == LocalPlayer.Character then return false end
     
-    local newSize = Vector3.new(
-        hitboxExpander.settings.headSizeX,
-        hitboxExpander.settings.headSizeY,
-        hitboxExpander.settings.headSizeZ
-    )
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end
     
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local character = player.Character
-            local targetPart = character:FindFirstChild(hitboxExpander.settings.targetPart)
-            
-            if targetPart then
-                -- Store original size if not already stored
-                storeOriginalSize(targetPart)
-                
-                -- Apply new size
-                targetPart.Size = newSize
-                targetPart.Transparency = hitboxExpander.settings.transparency
-                targetPart.CanCollide = hitboxExpander.settings.canCollide
+    local targetPart = character:FindFirstChild(_G.HitboxSettings.targetPart)
+    if not targetPart then return false end
+    
+    return true
+end
+
+local function addTarget(character)
+    if not isValidTarget(character) then return end
+    
+    local targetPart = character:FindFirstChild(_G.HitboxSettings.targetPart)
+    if targetPart and not validTargets[character] then
+        validTargets[character] = character
+        
+        -- Store original properties
+        originalSizes[targetPart] = targetPart.Size
+        originalTransparencies[targetPart] = targetPart.Transparency
+        originalCanCollide[targetPart] = targetPart.CanCollide
+    end
+end
+
+local function removeTarget(character)
+    if validTargets[character] then
+        local targetPart = character:FindFirstChild(_G.HitboxSettings.targetPart)
+        if targetPart then
+            -- Restore original properties
+            if originalSizes[targetPart] then
+                targetPart.Size = originalSizes[targetPart]
+                originalSizes[targetPart] = nil
+            end
+            if originalTransparencies[targetPart] then
+                targetPart.Transparency = originalTransparencies[targetPart]
+                originalTransparencies[targetPart] = nil
+            end
+            if originalCanCollide[targetPart] then
+                targetPart.CanCollide = originalCanCollide[targetPart]
+                originalCanCollide[targetPart] = nil
             end
         end
+        validTargets[character] = nil
     end
 end
 
--- Function to restore all hitboxes
-local function restoreAllHitboxes()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local character = player.Character
-            local targetPart = character:FindFirstChild(hitboxExpander.settings.targetPart)
-            
+local function updateHitboxes()
+    if not _G.HitboxSettings.enabled then return end
+    
+    for character, _ in pairs(validTargets) do
+        if character and character.Parent then
+            local targetPart = character:FindFirstChild(_G.HitboxSettings.targetPart)
             if targetPart then
-                restoreOriginalSize(targetPart)
+                targetPart.Size = _G.HitboxSettings.size
+                targetPart.Transparency = _G.HitboxSettings.transparency
+                targetPart.CanCollide = _G.HitboxSettings.canCollide
             end
+        else
+            -- Clean up invalid characters
+            validTargets[character] = nil
         end
     end
 end
 
--- Global functions for GUI integration
-_G.EnableHitboxExpander = function()
-    if hitboxExpander.enabled then return end
-    
-    hitboxExpander.enabled = true
-    
-    -- Connect expansion logic to heartbeat for continuous updates
-    hitboxExpander.connections.heartbeat = RunService.Heartbeat:Connect(expandHitboxes)
-    
-    -- Handle new players joining
-    hitboxExpander.connections.playerAdded = Players.PlayerAdded:Connect(function(player)
-        player.CharacterAdded:Connect(function(character)
-            wait(0.1) -- Small delay to ensure character is fully loaded
-            if hitboxExpander.enabled then
-                local targetPart = character:FindFirstChild(hitboxExpander.settings.targetPart)
-                if targetPart then
-                    storeOriginalSize(targetPart)
+local function restoreHitboxes()
+    for character, _ in pairs(validTargets) do
+        if character and character.Parent then
+            local targetPart = character:FindFirstChild(_G.HitboxSettings.targetPart)
+            if targetPart then
+                if originalSizes[targetPart] then
+                    targetPart.Size = originalSizes[targetPart]
+                end
+                if originalTransparencies[targetPart] then
+                    targetPart.Transparency = originalTransparencies[targetPart]
+                end
+                if originalCanCollide[targetPart] then
+                    targetPart.CanCollide = originalCanCollide[targetPart]
                 end
             end
+        end
+    end
+end
+
+-- Main functions
+function _G.EnableHitboxExpander()
+    if connections.heartbeat then return end
+    
+    _G.HitboxSettings.enabled = true
+    
+    -- Add existing characters
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            addTarget(player.Character)
+        end
+    end
+    
+    -- Connect to new characters
+    connections.playerAdded = Players.PlayerAdded:Connect(function(player)
+        if player.Character then
+            addTarget(player.Character)
+        end
+        player.CharacterAdded:Connect(function(character)
+            addTarget(character)
         end)
     end)
     
-    -- Handle players leaving
-    hitboxExpander.connections.playerRemoving = Players.PlayerRemoving:Connect(function(player)
+    connections.playerRemoving = Players.PlayerRemoving:Connect(function(player)
         if player.Character then
-            local targetPart = player.Character:FindFirstChild(hitboxExpander.settings.targetPart)
-            if targetPart and hitboxExpander.originalSizes[targetPart] then
-                hitboxExpander.originalSizes[targetPart] = nil
-            end
+            removeTarget(player.Character)
         end
     end)
+    
+    -- Connect to existing players' character spawning
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            player.CharacterAdded:Connect(function(character)
+                task.wait(0.1) -- Small delay to ensure character is fully loaded
+                addTarget(character)
+            end)
+            player.CharacterRemoving:Connect(function(character)
+                removeTarget(character)
+            end)
+        end
+    end
+    
+    -- Main update loop
+    connections.heartbeat = RunService.Heartbeat:Connect(updateHitboxes)
     
     print("Hitbox Expander enabled")
 end
 
-_G.DisableHitboxExpander = function()
-    if not hitboxExpander.enabled then return end
-    
-    hitboxExpander.enabled = false
-    
-    -- Restore all hitboxes before disabling
-    restoreAllHitboxes()
+function _G.DisableHitboxExpander()
+    _G.HitboxSettings.enabled = false
     
     -- Disconnect all connections
-    for name, connection in pairs(hitboxExpander.connections) do
+    for name, connection in pairs(connections) do
         if connection then
             connection:Disconnect()
+            connections[name] = nil
         end
-        hitboxExpander.connections[name] = nil
     end
     
-    -- Clear original sizes table
-    hitboxExpander.originalSizes = {}
+    -- Restore all hitboxes
+    restoreHitboxes()
+    
+    -- Clear data
+    validTargets = {}
+    originalSizes = {}
+    originalTransparencies = {}
+    originalCanCollide = {}
     
     print("Hitbox Expander disabled")
 end
 
-_G.SetHitboxSize = function(x, y, z)
-    if x then hitboxExpander.settings.headSizeX = x end
-    if y then hitboxExpander.settings.headSizeY = y end
-    if z then hitboxExpander.settings.headSizeZ = z or x end
-    
-    print("Hitbox size updated to:", hitboxExpander.settings.headSizeX, hitboxExpander.settings.headSizeY, hitboxExpander.settings.headSizeZ)
-end
-
-_G.SetHitboxTransparency = function(transparency)
-    hitboxExpander.settings.transparency = math.clamp(transparency or 0.5, 0, 1)
-    print("Hitbox transparency updated to:", hitboxExpander.settings.transparency)
-end
-
-_G.SetHitboxTargetPart = function(partName)
-    if not partName then return end
-    
-    -- Restore current hitboxes before changing target part
-    if hitboxExpander.enabled then
-        restoreAllHitboxes()
+function _G.SetHitboxSize(size)
+    if type(size) == "table" and size.X and size.Y and size.Z then
+        _G.HitboxSettings.size = Vector3.new(size.X, size.Y, size.Z)
+    elseif type(size) == "number" then
+        _G.HitboxSettings.size = Vector3.new(size, size, size)
     end
-    
-    -- Set new target part
-    hitboxExpander.settings.targetPart = partName
-    hitboxExpander.originalSizes = {} -- Clear original sizes since we're changing parts
-    
-    print("Hitbox target part changed to:", partName)
 end
 
-_G.CleanupHitboxExpander = function()
+function _G.SetHitboxTransparency(transparency)
+    _G.HitboxSettings.transparency = math.clamp(transparency or 0.5, 0, 1)
+end
+
+function _G.SetHitboxCanCollide(canCollide)
+    _G.HitboxSettings.canCollide = canCollide or false
+end
+
+function _G.SetHitboxTargetPart(part)
+    local validParts = {
+        "Head", "Torso", "LowerTorso", "UpperTorso", "HumanoidRootPart",
+        "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
+        "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
+        "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot"
+    }
+    
+    if table.find(validParts, part) then
+        _G.HitboxSettings.targetPart = part
+    end
+end
+
+function _G.CleanupHitboxExpander()
     _G.DisableHitboxExpander()
-    
-    -- Clear all data
-    hitboxExpander.validCharacters = {}
-    hitboxExpander.originalSizes = {}
-    hitboxExpander.connections = {}
-    
-    print("Hitbox Expander cleaned up")
+    _G.HitboxSettings = nil
+    _G.EnableHitboxExpander = nil
+    _G.DisableHitboxExpander = nil
+    _G.SetHitboxSize = nil
+    _G.SetHitboxTransparency = nil
+    _G.SetHitboxCanCollide = nil
+    _G.SetHitboxTargetPart = nil
+    _G.CleanupHitboxExpander = nil
 end
 
--- Initialize connections for existing players
-for _, player in pairs(Players:GetPlayers()) do
-    if player ~= LocalPlayer then
-        player.CharacterAdded:Connect(function(character)
-            wait(0.1) -- Small delay to ensure character is fully loaded
-            if hitboxExpander.enabled then
-                local targetPart = character:FindFirstChild(hitboxExpander.settings.targetPart)
-                if targetPart then
-                    storeOriginalSize(targetPart)
-                end
-            end
-        end)
-    end
+-- Auto cleanup on character respawn
+if LocalPlayer.Character then
+    LocalPlayer.Character.AncestryChanged:Connect(function()
+        if not LocalPlayer.Character.Parent then
+            _G.DisableHitboxExpander()
+        end
+    end)
 end
 
-print("Fixed Hitbox Expander script loaded")
+LocalPlayer.CharacterAdded:Connect(function(character)
+    character.AncestryChanged:Connect(function()
+        if not character.Parent then
+            _G.DisableHitboxExpander()
+        end
+    end)
+end)

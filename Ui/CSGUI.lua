@@ -104,6 +104,105 @@ CombatGroupBox:AddDropdown("HitboxPart", {
 	end,
 })
 
+-- Camlock System
+CombatGroupBox:AddDivider()
+CombatGroupBox:AddLabel("Camlock System")
+
+CombatGroupBox:AddToggle("CamlockToggle", {
+	Default = false,
+	Text = "Enable Camlock",
+	Tooltip = "Automatic camera targeting system",
+
+	Callback = function(Value)
+		if Value then
+			local success, err = pcall(function()
+				-- Здесь можно загрузить с GitHub или использовать код напрямую
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/camlock"))()
+				if _G.EnableCamlock then 
+					_G.EnableCamlock() 
+				end
+			end)
+			if success then
+				Library:Notify({ Title = "Camlock", Description = "Camlock system enabled!", Time = 2 })
+			else
+				Library:Notify({ Title = "Camlock", Description = "Failed to load Camlock: " .. tostring(err), Time = 3 })
+			end
+		else
+			if _G.DisableCamlock then 
+				_G.DisableCamlock() 
+			end
+			Library:Notify({ Title = "Camlock", Description = "Camlock disabled", Time = 2 })
+		end
+	end,
+})
+
+CombatGroupBox:AddDropdown("CamlockTargetPart", {
+	Values = { "Head", "Torso", "LowerTorso", "UpperTorso", "HumanoidRootPart", "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm", "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot" },
+	Default = 1,
+	Multi = false,
+	Text = "Camlock Target",
+	Tooltip = "Part to target with camlock",
+	Callback = function(Value)
+		if _G.SetCamlockTarget then 
+			_G.SetCamlockTarget(Value) 
+		end
+	end,
+})
+
+CombatGroupBox:AddSlider("CamlockFOV", {
+	Text = "Camlock FOV",
+	Default = 120,
+	Min = 10,
+	Max = 300,
+	Rounding = 1,
+	Tooltip = "Field of view for target selection",
+	Callback = function(Value)
+		if _G.SetCamlockFOV then 
+			_G.SetCamlockFOV(Value) 
+		end
+	end,
+})
+
+CombatGroupBox:AddSlider("CamlockSmoothness", {
+	Text = "Smoothness",
+	Default = 5,
+	Min = 1,
+	Max = 20,
+	Rounding = 1,
+	Tooltip = "Camera movement smoothness",
+	Callback = function(Value)
+		if _G.SetCamlockSmoothness then 
+			_G.SetCamlockSmoothness(Value) 
+		end
+	end,
+})
+
+CombatGroupBox:AddSlider("CamlockPrediction", {
+	Text = "Prediction",
+	Default = 15,
+	Min = 0,
+	Max = 100,
+	Rounding = 1,
+	Tooltip = "Movement prediction strength",
+	Callback = function(Value)
+		if _G.SetCamlockPrediction then 
+			_G.SetCamlockPrediction(Value / 100) 
+		end
+	end,
+})
+
+CombatGroupBox:AddToggle("CamlockFOVCircle", {
+	Default = true,
+	Text = "Show FOV Circle",
+	Tooltip = "Display FOV targeting circle",
+
+	Callback = function(Value)
+		if _G.ToggleFOVCircle then 
+			_G.ToggleFOVCircle(Value) 
+		end
+	end,
+})
+
 -- Visuals
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
@@ -243,7 +342,8 @@ MenuGroup:AddButton({
 			"CleanupCornerESP", 
 			"CleanupWatermark",
 			"CleanupVisualSpinbot",
-			"CleanupHitboxExpander"
+			"CleanupHitboxExpander",
+			"CleanupCamlock"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -265,7 +365,8 @@ Library:OnUnload(function()
 		"CleanupCornerESP", 
 		"CleanupWatermark",
 		"CleanupVisualSpinbot",
-		"CleanupHitboxExpander"
+		"CleanupHitboxExpander",
+		"CleanupCamlock"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

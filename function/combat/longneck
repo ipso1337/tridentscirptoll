@@ -1,1 +1,157 @@
+-- Long Neck Combat System for Trident Survival
+local longNeckEnabled = false
+local originalCFrame = nil
+local heartbeatConnection = nil
 
+-- Services
+local workspace = cloneref(game:GetService("Workspace"))
+local RunService = cloneref(game:GetService("RunService"))
+local UserInputService = cloneref(game:GetService("UserInputService"))
+local Players = cloneref(game:GetService("Players"))
+
+-- Global functions
+_G.EnableLongNeck = nil
+_G.DisableLongNeck = nil
+_G.CleanupLongNeck = nil
+_G.ToggleLongNeck = nil
+
+-- Get the correct character part for Trident Survival
+local function GetTopPart()
+    if workspace:FindFirstChild("Const") and 
+       workspace.Const:FindFirstChild("Ignore") and 
+       workspace.Const.Ignore:FindFirstChild("LocalCharacter") then
+        local localCharacter = workspace.Const.Ignore.LocalCharacter
+        local top = localCharacter:FindFirstChild("Top")
+        if top and top:FindFirstChild("Prism1") then
+            return top.Prism1
+        end
+    end
+    return nil
+end
+
+-- Wait for character to load
+local function WaitForCharacter()
+    local prism = nil
+    repeat
+        task.wait(0.5)
+        prism = GetTopPart()
+    until prism
+    return prism
+end
+
+-- Main Long Neck logic
+local function ApplyLongNeck()
+    local prism = GetTopPart()
+    if prism and originalCFrame then
+        prism.CFrame = originalCFrame - Vector3.new(0, 5, 0)
+    end
+end
+
+-- Heartbeat loop to maintain CFrame
+local function LongNeckLoop()
+    if longNeckEnabled then
+        ApplyLongNeck()
+    end
+end
+
+-- Enable Long Neck function
+local function EnableLongNeck()
+    if longNeckEnabled then
+        return -- Already enabled
+    end
+    
+    -- Wait for character to be ready
+    local prism = WaitForCharacter()
+    if not prism then
+        print("❌ Failed to find character - Long Neck cannot be enabled")
+        return
+    end
+    
+    -- Store original CFrame if not already stored
+    if not originalCFrame then
+        originalCFrame = prism.CFrame
+    end
+    
+    longNeckEnabled = true
+    
+    -- Connect heartbeat loop
+    if heartbeatConnection then
+        heartbeatConnection:Disconnect()
+    end
+    heartbeatConnection = RunService.Heartbeat:Connect(LongNeckLoop)
+    
+    -- Apply immediately
+    ApplyLongNeck()
+    
+    print("✅ Long Neck enabled")
+end
+
+-- Disable Long Neck function
+local function DisableLongNeck()
+    longNeckEnabled = false
+    
+    if heartbeatConnection then
+        heartbeatConnection:Disconnect()
+        heartbeatConnection = nil
+    end
+    
+    -- Restore original CFrame
+    local prism = GetTopPart()
+    if prism and originalCFrame then
+        prism.CFrame = originalCFrame
+    end
+    
+    print("❌ Long Neck disabled")
+end
+
+-- Toggle Long Neck function
+local function ToggleLongNeck()
+    if longNeckEnabled then
+        DisableLongNeck()
+    else
+        EnableLongNeck()
+    end
+end
+
+-- Cleanup function
+local function CleanupLongNeck()
+    DisableLongNeck()
+    
+    -- Clear global functions
+    _G.EnableLongNeck = nil
+    _G.DisableLongNeck = nil
+    _G.CleanupLongNeck = nil
+    _G.ToggleLongNeck = nil
+    
+    -- Reset variables
+    originalCFrame = nil
+    
+    print("🧹 Long Neck cleaned up")
+end
+
+-- Keybind setup (E key toggle)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.E then
+        ToggleLongNeck()
+    end
+end)
+
+-- Assign global functions
+_G.EnableLongNeck = EnableLongNeck
+_G.DisableLongNeck = DisableLongNeck
+_G.CleanupLongNeck = CleanupLongNeck
+_G.ToggleLongNeck = ToggleLongNeck
+
+print("🦒 Long Neck Combat System loaded for Trident Survival!")
+print("📋 Available functions:")
+print("   • _G.EnableLongNeck()")
+print("   • _G.DisableLongNeck()")
+print("   • _G.ToggleLongNeck()")
+print("   • _G.CleanupLongNeck()")
+print("")
+print("🎮 How to use:")
+print("   • Press E to toggle Long Neck on/off")
+print("   • Or use the GUI toggle")
+print("   • Long Neck extends your character's reach for combat")

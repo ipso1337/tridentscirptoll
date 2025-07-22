@@ -24,122 +24,7 @@ local Tabs = {
 
 local CombatGroupBox = Tabs.Combat:AddLeftGroupbox("Combat Features", "sword")
 
--- Aimbot
-CombatGroupBox:AddToggle("AimbotToggle", {
-	Default = false,
-	Text = "Enable Aimbot",
-	Tooltip = "Toggle aimbot on or off",
-
-	Callback = function(Value)
-		if Value then
-			local success, err = pcall(function()
-				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/aimbot"))()
-				if _G.EnableAimbot then 
-					_G.EnableAimbot() 
-				end
-			end)
-			if success then
-				Library:Notify({ Title = "Aimbot", Description = "Aimbot enabled!", Time = 2 })
-			else
-				Library:Notify({ Title = "Aimbot", Description = "Failed to load aimbot: " .. tostring(err), Time = 3 })
-			end
-		else
-			if _G.DisableAimbot then 
-				_G.DisableAimbot() 
-			end
-			if _G.CleanupAimbot then
-				_G.CleanupAimbot()
-			end
-			Library:Notify({ Title = "Aimbot", Description = "Aimbot disabled", Time = 2 })
-		end
-	end,
-})
-
-CombatGroupBox:AddSlider("AimbotSmooth", {
-	Text = "Smooth",
-	Default = 50,
-	Min = 1,
-	Max = 100,
-	Rounding = 0,
-	Callback = function(Value)
-		if _G.SetAimbotSmooth then 
-			_G.SetAimbotSmooth(Value) 
-		end
-	end,
-})
-
-CombatGroupBox:AddSlider("AimbotFOV", {
-	Text = "FOV",
-	Default = 30,
-	Min = 1,
-	Max = 150,
-	Rounding = 1,
-	Callback = function(Value)
-		if _G.SetAimbotFOV then 
-			_G.SetAimbotFOV(Value) 
-		end
-	end,
-})
-
-CombatGroupBox:AddSlider("AimbotShake", {
-	Text = "Shake",
-	Default = 5,
-	Min = 0,
-	Max = 30,
-	Rounding = 0,
-	Callback = function(Value)
-		if _G.SetAimbotShake then 
-			_G.SetAimbotShake(Value) 
-		end
-	end,
-})
-
-CombatGroupBox:AddDropdown("AimbotPart", {
-	Values = { "Head", "Torso", "LowerTorso", "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm", "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot", "HumanoidRootPart" },
-	Default = 1,
-	Multi = false,
-	Text = "Hit Part",
-	Callback = function(Value)
-		if _G.SetAimbotPart then 
-			_G.SetAimbotPart(Value) 
-		end
-	end,
-})
-
-CombatGroupBox:AddLabel("Aimbot Keybind"):AddKeyPicker("AimbotKeybind", {
-	Default = "C",
-	Mode = "Hold",
-	Text = "Hold Key",
-	NoUI = false,
-	Callback = function(Value)
-		print("KeyPicker Callback - Value:", Value, "Type:", type(Value))
-		if _G.SetAimbotKeybind then 
-			_G.SetAimbotKeybind(Value) 
-		end
-	end,
-	ChangedCallback = function(New)
-		print("KeyPicker ChangedCallback - New:", New, "Type:", type(New))
-		if _G.SetAimbotKeybind then 
-			-- Handle the keybind change
-			if type(New) == "userdata" and tostring(New):find("KeyCode") then
-				_G.SetAimbotKeybind(New)
-			elseif type(New) == "string" then
-				_G.SetAimbotKeybind(New)
-			else
-				-- Try to extract the key name
-				local keyName = tostring(New):match("KeyCode%.(%w+)")
-				if keyName then
-					_G.SetAimbotKeybind(keyName)
-				else
-					_G.SetAimbotKeybind(New)
-				end
-			end
-		end
-	end,
-})
-
 -- Hitbox Expander
-CombatGroupBox:AddDivider()
 CombatGroupBox:AddLabel("Hitbox Expander")
 
 CombatGroupBox:AddToggle("HitboxToggle", {
@@ -272,33 +157,6 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	end,
 })
 
-VisualGroupBox:AddToggle("SkeletonToggle", {
-	Default = false,
-	Text = "Enable Skeleton ESP",
-	Tooltip = "Toggle skeleton ESP on or off",
-
-	Callback = function(Value)
-		if Value then
-			local success, err = pcall(function()
-				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/skeleton"))()
-				if _G.EnableSkeletonESP then 
-					_G.EnableSkeletonESP() 
-				end
-			end)
-			if success then
-				Library:Notify({ Title = "Skeleton ESP", Description = "Skeleton ESP enabled!", Time = 2 })
-			else
-				Library:Notify({ Title = "Skeleton ESP", Description = "Failed to load Skeleton ESP: " .. tostring(err), Time = 3 })
-			end
-		else
-			if _G.DisableSkeletonESP then 
-				_G.DisableSkeletonESP() 
-			end
-			Library:Notify({ Title = "Skeleton ESP", Description = "Skeleton ESP disabled", Time = 2 })
-		end
-	end,
-})
-
 VisualGroupBox:AddToggle("WatermarkToggle", {
 	Default = false,
 	Text = "Show Watermark",
@@ -325,22 +183,6 @@ VisualGroupBox:AddToggle("WatermarkToggle", {
 				_G.DisableWatermark() 
 			end
 			Library:Notify({ Title = "Watermark", Description = "Watermark disabled", Time = 2 })
-		end
-	end,
-})
-
-VisualGroupBox:AddButton({
-	Text = "Show Health Bar",
-	Tooltip = "Loads ESP script to show player health bars",
-
-	Func = function()
-		local success, err = pcall(function()
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/Eazvy/UILibs/refs/heads/main/ESP/XCT/Example"))()
-		end)
-		if success then
-			Library:Notify({ Title = "ESP Loaded", Description = "Health Bar ESP loaded!", Time = 3 })
-		else
-			Library:Notify({ Title = "ESP Error", Description = "Failed to load Health Bar ESP: " .. tostring(err), Time = 3 })
 		end
 	end,
 })
@@ -395,14 +237,12 @@ MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
 MenuGroup:AddButton({
 	Text = "Unload",
 	Func = function()
-		-- Cleanup all functions including hitbox expander
+		-- Cleanup all functions
 		local cleanupFunctions = {
 			"CleanupBoxESP",
 			"CleanupCornerESP", 
-			"CleanupSkeletonESP",
 			"CleanupWatermark",
 			"CleanupVisualSpinbot",
-			"CleanupAimbot",
 			"CleanupHitboxExpander"
 		}
 		
@@ -419,14 +259,12 @@ MenuGroup:AddButton({
 Library.ToggleKeybind = Options.MenuKeybind
 
 Library:OnUnload(function()
-	-- Cleanup all functions on unload including hitbox expander
+	-- Cleanup all functions on unload
 	local cleanupFunctions = {
 		"CleanupBoxESP",
 		"CleanupCornerESP", 
-		"CleanupSkeletonESP",
 		"CleanupWatermark",
 		"CleanupVisualSpinbot",
-		"CleanupAimbot",
 		"CleanupHitboxExpander"
 	}
 	

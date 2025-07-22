@@ -25,7 +25,6 @@ local Tabs = {
 
 local CombatGroupBox = Tabs.Combat:AddLeftGroupbox("Combat Features", "sword")
 
--- Hitbox Expander
 CombatGroupBox:AddLabel("Hitbox Expander")
 
 CombatGroupBox:AddToggle("HitboxToggle", {
@@ -107,7 +106,6 @@ CombatGroupBox:AddDropdown("HitboxPart", {
 
 CombatGroupBox:AddLabel("Long Neck")
 
--- First create a toggle and capture the reference
 local LongNeckToggle = CombatGroupBox:AddToggle("LongNeckToggle", {
 	Default = false,
 	Text = "Enable Long Neck",
@@ -135,17 +133,16 @@ local LongNeckToggle = CombatGroupBox:AddToggle("LongNeckToggle", {
 	end,
 })
 
--- Then add a keybind to it using the reference
 local LongNeckKeybind = LongNeckToggle:AddKeyPicker("LongNeckKeybind", {
 	Default = "F",
 	Text = "Long Neck Keybind",
-	Mode = "Toggle", -- Исправлено: используем Mode вместо Modes
+	Mode = "Toggle",
 	SyncToggleState = true,
 	Callback = function(Value)
 		print("Long Neck keybind pressed, value:", Value)
 	end
 })
--- Visuals
+
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 
 VisualGroupBox:AddDropdown("ViewModeDropdown", {
@@ -198,9 +195,6 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 	end,
 })
 
--- Nametag ESP
-VisualGroupBox:AddLabel("Nametag ESP")
-
 VisualGroupBox:AddToggle("NametagToggle", {
 	Default = false,
 	Text = "Enable Nametag",
@@ -215,15 +209,15 @@ VisualGroupBox:AddToggle("NametagToggle", {
 				end
 			end)
 			if success then
-				Library:Notify({ Title = "Nametag ESP", Description = "Nametag ESP enabled!", Time = 2 })
+				Library:Notify({ Title = "Nametag", Description = "Nametag enabled!", Time = 2 })
 			else
-				Library:Notify({ Title = "Nametag ESP", Description = "Failed to load Nametag ESP: " .. tostring(err), Time = 3 })
+				Library:Notify({ Title = "Nametag", Description = "Failed to load Nametag: " .. tostring(err), Time = 3 })
 			end
 		else
 			if _G.DisableNametags then 
 				_G.DisableNametags() 
 			end
-			Library:Notify({ Title = "Nametag ESP", Description = "Nametag ESP disabled", Time = 2 })
+			Library:Notify({ Title = "Nametag", Description = "Nametag disabled", Time = 2 })
 		end
 	end,
 })
@@ -239,7 +233,24 @@ VisualGroupBox:AddToggle("SleepCheckToggle", {
 		end
 		Library:Notify({ 
 			Title = "Sleep Check", 
-			Description = Value and "Sleep check enabled" or "Sleep check disabled", 
+			Description = Value and "Sleep Check enabled" or "Sleep Check disabled", 
+			Time = 2 
+		})
+	end,
+})
+
+VisualGroupBox:AddToggle("ShowWeaponsToggle", {
+	Default = false,
+	Text = "Show Weapons",
+	Tooltip = "Display equipped weapons in nametags",
+
+	Callback = function(Value)
+		if _G.SetNametagsShowWeapons then 
+			_G.SetNametagsShowWeapons(Value) 
+		end
+		Library:Notify({ 
+			Title = "Show Weapons", 
+			Description = Value and "Show Weapons enabled" or "Show Weapons disabled", 
 			Time = 2 
 		})
 	end,
@@ -275,7 +286,6 @@ VisualGroupBox:AddToggle("WatermarkToggle", {
 	end,
 })
 
--- Misc Features
 local MiscGroupBox = Tabs.Misc:AddLeftGroupbox("Misc Features", "tool")
 
 MiscGroupBox:AddLabel("BeterSlide System")
@@ -338,7 +348,6 @@ MiscGroupBox:AddToggle("ForcesprintToggle", {
 	end,
 })
 
--- UI Settings
 local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
 
 MenuGroup:AddToggle("KeybindMenuOpen", {
@@ -388,7 +397,6 @@ MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
 MenuGroup:AddButton({
 	Text = "Unload",
 	Func = function()
-		-- Cleanup all functions
 		local cleanupFunctions = {
 			"CleanupBoxESP",
 			"CleanupCornerESP", 
@@ -413,7 +421,6 @@ MenuGroup:AddButton({
 Library.ToggleKeybind = Options.MenuKeybind
 
 Library:OnUnload(function()
-	-- Cleanup all functions on unload
 	local cleanupFunctions = {
 		"CleanupBoxESP",
 		"CleanupCornerESP", 
@@ -434,7 +441,6 @@ Library:OnUnload(function()
 	print("Script unloaded!")
 end)
 
--- Initialize managers
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()

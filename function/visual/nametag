@@ -1,3 +1,4 @@
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -13,7 +14,7 @@ local nametags_settings = {
     team_color = false, -- Use team colors
     maxdistance = 200, -- Maximum distance for nametags rendering
     distancelimit = false, -- Disable distance limit
-    text_size = 20, -- Base text size (увеличен с 16 до 20)
+    text_size = 18, -- Base text size (increased from 16)
     show_distance = true, -- Show distance in brackets
     show_health = true, -- Show health bar
     show_weapon = true, -- Show weapon name
@@ -103,7 +104,7 @@ local function create_nametags(model)
         player = player,
         obj = {
             nameLabel = createTextLabel("Player", nametags_settings.color, nametags_settings.text_size),
-            weaponLabel = createTextLabel("None", nametags_settings.color, nametags_settings.text_size - 4),
+            weaponLabel = createTextLabel("None", nametags_settings.color, nametags_settings.text_size - 2),
             healthBar = createHealthBar()
         },
         connection = nil
@@ -143,7 +144,7 @@ local function create_nametags(model)
             return
         end
         
-        local screenPos, onScreen = worldToScreen(head.Position + Vector3.new(0, 1.5, 0)) -- Поднят выше (было 1, стало 1.5)
+        local screenPos, onScreen = worldToScreen(head.Position + Vector3.new(0, 2, 0)) -- Raised position (was 1, now 2)
         if not onScreen then
             obj.nameLabel.Visible = false
             obj.weaponLabel.Visible = false
@@ -187,7 +188,7 @@ local function create_nametags(model)
         
         -- Calculate text size based on distance
         local textSize = nametags_settings.text_size
-        local scaleFactor = math.clamp(1000 / distance, 16, 28) -- Увеличен максимальный размер (было 24, стало 28)
+        local scaleFactor = math.clamp(1000 / distance, 14, 26) -- Increased scale factor range
         textSize = scaleFactor
         
         -- Update name label
@@ -195,6 +196,7 @@ local function create_nametags(model)
         if nametags_settings.show_distance then
             displayText = playerName .. " [" .. math.floor(distance) .. "]"
         end
+        
         obj.nameLabel.Text = displayText
         obj.nameLabel.Position = screenPos
         obj.nameLabel.Color = textColor
@@ -210,9 +212,9 @@ local function create_nametags(model)
             end
             
             obj.weaponLabel.Text = weaponName
-            obj.weaponLabel.Position = Vector2.new(screenPos.X, screenPos.Y + textSize + 5)
-            obj.weaponLabel.Color = Color3.new(1, 0.8, 0) -- Золотой цвет для оружия
-            obj.weaponLabel.Size = textSize - 4
+            obj.weaponLabel.Position = Vector2.new(screenPos.X, screenPos.Y + textSize + 3)
+            obj.weaponLabel.Color = Color3.new(1, 1, 0) -- Yellow color for weapon
+            obj.weaponLabel.Size = textSize - 2
             obj.weaponLabel.Transparency = 1 - nametags_settings.transparency
             obj.weaponLabel.Visible = true
         else
@@ -224,7 +226,7 @@ local function create_nametags(model)
             local healthPercentage = humanoid.Health / humanoid.MaxHealth
             local barWidth = 60 * (scaleFactor / 16)
             local barHeight = 6
-            local barY = screenPos.Y + textSize + (nametags_settings.show_weapon and 25 or 5)
+            local barY = screenPos.Y + textSize + (nametags_settings.show_weapon and textSize + 8 or 5)
             
             -- Background
             obj.healthBar.background.Size = Vector2.new(barWidth, barHeight)
@@ -291,7 +293,7 @@ _G.SetNametagsSleepCheck = function(value)
     nametags_settings.sleep_check = value
 end
 
-_G.SetWeaponDisplay = function(value)
+_G.SetNametagsWeaponDisplay = function(value)
     nametags_settings.show_weapon = value
 end
 
@@ -308,5 +310,5 @@ game:BindToClose(function()
     end
 end)
 
-print("Enhanced Nametags with Weapon Display loaded successfully!")
+print("Nametags ESP with Weapons loaded successfully!")
 print("Features: Name, Distance, Health Bar, Weapon Display")

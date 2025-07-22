@@ -312,9 +312,12 @@ _G.CleanupBoxESP = function()
     end
 end
 
--- Cleanup on script termination
-game:BindToClose(function()
-    for model, plr_data in pairs(loaded_players) do
-        destroy_box3d_esp(model)
-    end
+-- Cleanup on script termination (if needed)
+-- Note: BindToClose may not work in all environments
+pcall(function()
+    game:BindToClose(function()
+        for model, plr_data in pairs(loaded_players) do
+            destroy_box3d_esp(model)
+        end
+    end)
 end)

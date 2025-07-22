@@ -1,27 +1,24 @@
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
 
--- Hardcoded Nametags Settings
-local nametags_settings = {
-    enabled = true, -- Master toggle for Nametags
-    sleep_check = true, -- Check if player is sleeping
-    color = Color3.new(1, 1, 1), -- White
-    transparency = 0, -- 0 = fully opaque, 1 = fully transparent
-    teamcheck = false, -- Disable team check
-    team_color = false, -- Use team colors
-    maxdistance = 200, -- Maximum distance for nametags rendering
-    distancelimit = false, -- Disable distance limit
-    text_size = 18, -- Base text size (increased from 16)
-    show_distance = true, -- Show distance in brackets
-    show_health = true, -- Show health bar
-    show_weapon = true, -- Show weapon name
-    outline = true -- Text outline
+local settings = {
+    enabled = true,
+    sleep_check = true,
+    show_weapons = false,
+    color = Color3.new(1, 1, 1),
+    transparency = 0,
+    teamcheck = false,
+    team_color = false,
+    maxdistance = 200,
+    distancelimit = false,
+    text_size = 16,
+    show_distance = true,
+    show_health = true,
+    outline = true
 }
 
--- Utility Functions
 local function worldToScreen(world)
     local screen, inBounds = Camera:WorldToViewportPoint(world)
     return Vector2.new(screen.X, screen.Y), inBounds, screen.Z
@@ -31,7 +28,7 @@ local function sleepCheck(player)
     local animations = player:FindFirstChild("AnimationController") and player.AnimationController:GetPlayingAnimationTracks()
     if animations then
         for _, v in pairs(animations) do
-            if (v.IsPlaying and v.Animation.AnimationId == "rbxassetid://13280887764") then
+            if v.IsPlaying and v.Animation.AnimationId == "rbxassetid://13280887764" then
                 return true
             end
         end
@@ -39,11 +36,9 @@ local function sleepCheck(player)
     return false
 end
 
-local function getToolName(handModel)
-    if handModel and handModel:GetAttribute("name") then
-        return tostring(handModel:GetAttribute("name"))
-    end
-    return "None"
+local function getEquippedWeapon(character)
+    local tool = character:FindFirstChildOfClass("Tool")
+    return tool and tool.Name or "None"
 end
 
 local function createTextLabel(text, color, size)
@@ -53,9 +48,9 @@ local function createTextLabel(text, color, size)
     label.Color = color
     label.Size = size
     label.Center = true
-    label.Outline = nametags_settings.outline
+    label.Outline = settings.outline
     label.Font = Drawing.Fonts.UI
-    label.Transparency = 1 - nametags_settings.transparency
+    label.Transparency = 1 - settings.transparency
     return label
 end
 
@@ -77,7 +72,6 @@ local function createHealthBar()
     return {background = background, foreground = foreground}
 end
 
--- Nametags Management
 local loaded_players = {}
 
 local function create_nametags(model)
@@ -85,13 +79,11 @@ local function create_nametags(model)
         return
     end
     
-    -- Skip if player name is "Shylou2644"
     if model:FindFirstChild("Head") and model.Head:FindFirstChild("Nametag") and 
        model.Head.Nametag:FindFirstChild("tag") and model.Head.Nametag.tag.Text == "Shylou2644" then
         return
     end
     
-    -- Find player object for team checks
     local player = nil
     for _, p in pairs(Players:GetPlayers()) do
         if p.Character == model then
@@ -103,8 +95,7 @@ local function create_nametags(model)
     loaded_players[model] = {
         player = player,
         obj = {
-            nameLabel = createTextLabel("Player", nametags_settings.color, nametags_settings.text_size),
-            weaponLabel = createTextLabel("None", nametags_settings.color, nametags_settings.text_size - 2),
+            nameLabel = createTextLabel("Player", settings.color, settings.text_size),
             healthBar = createHealthBar()
         },
         connection = nil
@@ -116,135 +107,103 @@ local function create_nametags(model)
     local head = model:FindFirstChild("Head")
     local lowertorso = model:FindFirstChild("LowerTorso")
     local humanoid = model:FindFirstChild("Humanoid")
-    
+
     plr_data.connection = RunService.RenderStepped:Connect(function()
-        if not (nametags_settings.enabled and head and character and character.Parent) then
+        if not (settings.enabled and head and character and character.Parent) then
             obj.nameLabel.Visible = false
-            obj.weaponLabel.Visible = false
             obj.healthBar.background.Visible = false
             obj.healthBar.foreground.Visible = false
             return
         end
         
-        -- Check if character is alive
         if humanoid and humanoid.Health <= 0 then
             obj.nameLabel.Visible = false
-            obj.weaponLabel.Visible = false
             obj.healthBar.background.Visible = false
             obj.healthBar.foreground.Visible = false
             return
         end
-        
-        -- Sleep check
-        if nametags_settings.sleep_check and sleepCheck(character) then
+
+        if settings.sleep_check and sleepCheck(character) then
             obj.nameLabel.Visible = false
-            obj.weaponLabel.Visible = false
             obj.healthBar.background.Visible = false
             obj.healthBar.foreground.Visible = false
             return
         end
-        
-        local screenPos, onScreen = worldToScreen(head.Position + Vector3.new(0, 2, 0)) -- Raised position (was 1, now 2)
+
+        local screenPos, onScreen = worldToScreen(head.Position + Vector3.new(0, 1, 0))
         if not onScreen then
             obj.nameLabel.Visible = false
-            obj.weaponLabel.Visible = false
             obj.healthBar.background.Visible = false
             obj.healthBar.foreground.Visible = false
             return
         end
-        
-        -- Distance check
+
         local distance = (Camera.CFrame.Position - head.Position).Magnitude
-        if nametags_settings.distancelimit and distance > nametags_settings.maxdistance then
+        if settings.distancelimit and distance > settings.maxdistance then
             obj.nameLabel.Visible = false
-            obj.weaponLabel.Visible = false
             obj.healthBar.background.Visible = false
             obj.healthBar.foreground.Visible = false
             return
         end
-        
-        -- Team check
-        if nametags_settings.teamcheck and plr_data.player and Players.LocalPlayer then
+
+        if settings.teamcheck and plr_data.player and Players.LocalPlayer then
             if plr_data.player.Team == Players.LocalPlayer.Team then
                 obj.nameLabel.Visible = false
-                obj.weaponLabel.Visible = false
                 obj.healthBar.background.Visible = false
                 obj.healthBar.foreground.Visible = false
                 return
             end
         end
-        
-        -- Get player name
+
         local playerName = "Player"
         if head:FindFirstChild("Nametag") and head.Nametag:FindFirstChild("tag") and head.Nametag.tag.Text ~= "" then
             playerName = head.Nametag.tag.Text
         end
-        
-        -- Determine color
-        local textColor = nametags_settings.color
-        if nametags_settings.team_color and plr_data.player and plr_data.player.TeamColor then
+
+        local textColor = settings.color
+        if settings.team_color and plr_data.player and plr_data.player.TeamColor then
             textColor = plr_data.player.TeamColor.Color
         end
-        
-        -- Calculate text size based on distance
-        local textSize = nametags_settings.text_size
-        local scaleFactor = math.clamp(1000 / distance, 14, 26) -- Increased scale factor range
-        textSize = scaleFactor
-        
-        -- Update name label
+
+        local textSize = math.clamp(1000 / distance, 12, 24)
+
         local displayText = playerName
-        if nametags_settings.show_distance then
+        if settings.show_distance then
             displayText = playerName .. " [" .. math.floor(distance) .. "]"
         end
         
+        if settings.show_weapons then
+            local weapon = getEquippedWeapon(character)
+            displayText = displayText .. " | " .. weapon
+        end
+
         obj.nameLabel.Text = displayText
         obj.nameLabel.Position = screenPos
         obj.nameLabel.Color = textColor
         obj.nameLabel.Size = textSize
-        obj.nameLabel.Transparency = 1 - nametags_settings.transparency
+        obj.nameLabel.Transparency = 1 - settings.transparency
         obj.nameLabel.Visible = true
-        
-        -- Weapon display
-        if nametags_settings.show_weapon then
-            local weaponName = "None"
-            if character:FindFirstChild("HandModel") then
-                weaponName = getToolName(character.HandModel)
-            end
-            
-            obj.weaponLabel.Text = weaponName
-            obj.weaponLabel.Position = Vector2.new(screenPos.X, screenPos.Y + textSize + 3)
-            obj.weaponLabel.Color = Color3.new(1, 1, 0) -- Yellow color for weapon
-            obj.weaponLabel.Size = textSize - 2
-            obj.weaponLabel.Transparency = 1 - nametags_settings.transparency
-            obj.weaponLabel.Visible = true
-        else
-            obj.weaponLabel.Visible = false
-        end
-        
-        -- Health bar
-        if nametags_settings.show_health and humanoid then
+
+        if settings.show_health and humanoid then
             local healthPercentage = humanoid.Health / humanoid.MaxHealth
-            local barWidth = 60 * (scaleFactor / 16)
+            local barWidth = 60 * (textSize / 16)
             local barHeight = 6
-            local barY = screenPos.Y + textSize + (nametags_settings.show_weapon and textSize + 8 or 5)
-            
-            -- Background
+            local barY = screenPos.Y + textSize + 5
+
             obj.healthBar.background.Size = Vector2.new(barWidth, barHeight)
             obj.healthBar.background.Position = Vector2.new(screenPos.X - barWidth/2, barY)
             obj.healthBar.background.Visible = true
-            
-            -- Foreground
+
             local healthWidth = barWidth * healthPercentage
             obj.healthBar.foreground.Size = Vector2.new(healthWidth, barHeight)
             obj.healthBar.foreground.Position = Vector2.new(screenPos.X - barWidth/2, barY)
             
-            -- Health color based on percentage
             if healthPercentage > 0.6 then
-                obj.healthBar.foreground.Color = Color3.new(0, 1, 0) -- Green
+                obj.healthBar.foreground.Color = Color3.new(0, 1, 0)
             elseif healthPercentage > 0.3 then
-                obj.healthBar.foreground.Color = Color3.new(1, 1, 0) -- Yellow
+                obj.healthBar.foreground.Color = Color3.new(1, 1, 0)
             else
-                obj.healthBar.foreground.Color = Color3.new(1, 0, 0) -- Red
+                obj.healthBar.foreground.Color = Color3.new(1, 0, 0)
             end
             
             obj.healthBar.foreground.Visible = true
@@ -264,37 +223,33 @@ local function destroy_nametags(model)
     end
     
     plr_data.obj.nameLabel:Remove()
-    plr_data.obj.weaponLabel:Remove()
     plr_data.obj.healthBar.background:Remove()
     plr_data.obj.healthBar.foreground:Remove()
     
     loaded_players[model] = nil
 end
 
--- Initialize Nametags for existing players
 for _, v in ipairs(Workspace:GetChildren()) do
     create_nametags(v)
 end
 
--- Handle player addition and removal
 Workspace.ChildAdded:Connect(create_nametags)
 Workspace.ChildRemoved:Connect(destroy_nametags)
 
--- Global functions for external control
 _G.DisableNametags = function()
-    nametags_settings.enabled = false
+    settings.enabled = false
 end
 
 _G.EnableNametags = function()
-    nametags_settings.enabled = true
+    settings.enabled = true
 end
 
 _G.SetNametagsSleepCheck = function(value)
-    nametags_settings.sleep_check = value
+    settings.sleep_check = value
 end
 
-_G.SetNametagsWeaponDisplay = function(value)
-    nametags_settings.show_weapon = value
+_G.SetNametagsShowWeapons = function(value)
+    settings.show_weapons = value
 end
 
 _G.CleanupNametags = function()
@@ -303,12 +258,8 @@ _G.CleanupNametags = function()
     end
 end
 
--- Cleanup on script termination
 game:BindToClose(function()
     for model, plr_data in pairs(loaded_players) do
         destroy_nametags(model)
     end
 end)
-
-print("Nametags ESP with Weapons loaded successfully!")
-print("Features: Name, Distance, Health Bar, Weapon Display")

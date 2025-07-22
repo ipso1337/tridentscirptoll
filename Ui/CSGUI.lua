@@ -105,7 +105,6 @@ CombatGroupBox:AddDropdown("HitboxPart", {
 	end,
 })
 
--- Long Neck
 CombatGroupBox:AddLabel("Long Neck")
 
 -- First create a toggle and capture the reference
@@ -140,14 +139,12 @@ local LongNeckToggle = CombatGroupBox:AddToggle("LongNeckToggle", {
 local LongNeckKeybind = LongNeckToggle:AddKeyPicker("LongNeckKeybind", {
 	Default = "F",
 	Text = "Long Neck Keybind",
-	Mode = "Toggle",
-	Modes = {"Always", "Toggle", "Hold"},
+	Mode = "Toggle", -- Исправлено: используем Mode вместо Modes
 	SyncToggleState = true,
 	Callback = function(Value)
 		print("Long Neck keybind pressed, value:", Value)
 	end
 })
-
 -- Visuals
 local VisualGroupBox = Tabs.Visual:AddLeftGroupbox("Visual Features", "eye")
 

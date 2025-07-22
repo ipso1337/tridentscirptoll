@@ -1,1 +1,478 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+local TweenService = game:GetService("TweenService")
 
+-- Hardcoded Bullet Tracer Settings
+local bullet_tracer_settings = {
+    enabled = true, -- Master toggle for Bullet Tracer
+    tracer_type = "line", -- Types: "line", "beam", "trail", "particle"
+    line_color = Color3.new(1, 0, 0), -- Red
+    line_transparency = 0, -- 0 = fully opaque, 1 = fully transparent
+    line_thickness = 2, -- Line thickness
+    beam_color = Color3.new(0, 1, 0), -- Green for beam
+    beam_transparency = 0.3,
+    beam_width = 0.5,
+    trail_color = Color3.new(0, 0, 1), -- Blue for trail
+    trail_transparency = 0.2,
+    trail_lifetime = 2, -- Trail duration in seconds
+    particle_color = Color3.new(1, 1, 0), -- Yellow for particles
+    particle_size = 0.2,
+    particle_speed = 50,
+    fade_time = 1.5, -- Time for tracer to fade out
+    max_distance = 500, -- Maximum tracer distance
+    teamcheck = false, -- Show tracers from teammates
+    show_own_bullets = false, -- Show your own bullet tracers
+    outline_enabled = true,
+    outline_color = Color3.new(0, 0, 0), -- Black outline
+    outline_thickness = 4
+}
+
+-- Active tracers storage
+local active_tracers = {}
+local tracer_connections = {}
+
+-- Utility Functions
+local function worldToScreen(world)
+    local screen, inBounds = Camera:WorldToViewportPoint(world)
+    return Vector2.new(screen.X, screen.Y), inBounds, screen.Z
+end
+
+local function createLine(color, thickness, transparency)
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.From = Vector2.new(0, 0)
+    line.To = Vector2.new(0, 0)
+    line.Color = color
+    line.Thickness = thickness
+    line.Transparency = transparency or 0
+    line.ZIndex = 2
+    return line
+end
+
+local function createOutline(color, thickness, transparency)
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.From = Vector2.new(0, 0)
+    line.To = Vector2.new(0, 0)
+    line.Color = color
+    line.Thickness = thickness
+    line.Transparency = transparency or 0
+    line.ZIndex = 1
+    return line
+end
+
+-- 3D Tracer Creation Functions
+local function createBeamTracer(startPos, endPos, color, transparency, width)
+    local attachment1 = Instance.new("Attachment")
+    local attachment2 = Instance.new("Attachment")
+    local beam = Instance.new("Beam")
+    
+    -- Create invisible parts to hold attachments
+    local part1 = Instance.new("Part")
+    part1.Anchored = true
+    part1.CanCollide = false
+    part1.Transparency = 1
+    part1.Size = Vector3.new(0.1, 0.1, 0.1)
+    part1.Position = startPos
+    part1.Parent = Workspace
+    
+    local part2 = Instance.new("Part")
+    part2.Anchored = true
+    part2.CanCollide = false
+    part2.Transparency = 1
+    part2.Size = Vector3.new(0.1, 0.1, 0.1)
+    part2.Position = endPos
+    part2.Parent = Workspace
+    
+    attachment1.Parent = part1
+    attachment2.Parent = part2
+    
+    beam.Attachment0 = attachment1
+    beam.Attachment1 = attachment2
+    beam.Color = ColorSequence.new(color)
+    beam.Transparency = NumberSequence.new(transparency)
+    beam.Width0 = width
+    beam.Width1 = width
+    beam.FaceCamera = true
+    beam.Parent = Workspace
+    
+    return {beam = beam, part1 = part1, part2 = part2, attachment1 = attachment1, attachment2 = attachment2}
+end
+
+local function createTrailTracer(startPos, endPos, color, transparency, lifetime)
+    local part = Instance.new("Part")
+    part.Anchored = true
+    part.CanCollide = false
+    part.Transparency = 1
+    part.Size = Vector3.new(0.1, 0.1, 0.1)
+    part.Position = startPos
+    part.Parent = Workspace
+    
+    local attachment = Instance.new("Attachment")
+    attachment.Parent = part
+    
+    local trail = Instance.new("Trail")
+    trail.Attachment0 = attachment
+    trail.Attachment1 = attachment
+    trail.Color = ColorSequence.new(color)
+    trail.Transparency = NumberSequence.new(transparency)
+    trail.Lifetime = lifetime
+    trail.MinLength = 0
+    trail.FaceCamera = true
+    trail.Parent = part
+    
+    -- Animate the part from start to end
+    local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(part, tweenInfo, {Position = endPos})
+    tween:Play()
+    
+    return {trail = trail, part = part, attachment = attachment, tween = tween}
+end
+
+local function createParticleTracer(startPos, endPos, color, size, speed)
+    local part = Instance.new("Part")
+    part.Anchored = true
+    part.CanCollide = false
+    part.Transparency = 1
+    part.Size = Vector3.new(0.1, 0.1, 0.1)
+    part.Position = startPos
+    part.Parent = Workspace
+    
+    local attachment = Instance.new("Attachment")
+    attachment.Parent = part
+    
+    local emitter = Instance.new("ParticleEmitter")
+    emitter.Parent = attachment
+    emitter.Color = ColorSequence.new(color)
+    emitter.Size = NumberSequence.new(size)
+    emitter.Lifetime = NumberRange.new(0.5, 1.0)
+    emitter.Rate = 100
+    emitter.SpreadAngle = Vector2.new(5, 5)
+    emitter.Speed = NumberRange.new(speed * 0.8, speed * 1.2)
+    emitter.Acceleration = Vector3.new(0, -50, 0)
+    
+    -- Calculate direction and set velocity
+    local direction = (endPos - startPos).Unit
+    emitter.VelocityInheritance = 1
+    
+    -- Move particle emitter along the bullet path
+    local distance = (endPos - startPos).Magnitude
+    local moveTime = distance / speed
+    
+    local tweenInfo = TweenInfo.new(moveTime, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(part, tweenInfo, {Position = endPos})
+    tween:Play()
+    
+    -- Stop emitting after a short time
+    wait(0.2)
+    emitter.Enabled = false
+    
+    return {emitter = emitter, part = part, attachment = attachment, tween = tween}
+end
+
+-- Main Tracer Creation Function
+local function createBulletTracer(startPos, endPos, shooter)
+    if not bullet_tracer_settings.enabled then return end
+    
+    -- Team and self check
+    local localPlayer = Players.LocalPlayer
+    if shooter == localPlayer and not bullet_tracer_settings.show_own_bullets then
+        return
+    end
+    
+    if bullet_tracer_settings.teamcheck and shooter and localPlayer then
+        if shooter.Team == localPlayer.Team then
+            return
+        end
+    end
+    
+    -- Distance check
+    local distance = (endPos - startPos).Magnitude
+    if distance > bullet_tracer_settings.max_distance then
+        endPos = startPos + (endPos - startPos).Unit * bullet_tracer_settings.max_distance
+    end
+    
+    local tracerId = #active_tracers + 1
+    local tracer = {
+        type = bullet_tracer_settings.tracer_type,
+        startTime = tick(),
+        objects = {}
+    }
+    
+    if bullet_tracer_settings.tracer_type == "line" then
+        -- 2D Line tracer (screen space)
+        local line = createLine(bullet_tracer_settings.line_color, bullet_tracer_settings.line_thickness, bullet_tracer_settings.line_transparency)
+        local outline = nil
+        
+        if bullet_tracer_settings.outline_enabled then
+            outline = createOutline(bullet_tracer_settings.outline_color, bullet_tracer_settings.outline_thickness, bullet_tracer_settings.line_transparency)
+        end
+        
+        tracer.objects = {line = line, outline = outline}
+        
+        -- Update connection for 2D line
+        local connection = RunService.RenderStepped:Connect(function()
+            local startScreen, startVisible = worldToScreen(startPos)
+            local endScreen, endVisible = worldToScreen(endPos)
+            
+            if startVisible or endVisible then
+                if outline then
+                    outline.From = startScreen
+                    outline.To = endScreen
+                    outline.Visible = true
+                end
+                
+                line.From = startScreen
+                line.To = endScreen
+                line.Visible = true
+                
+                -- Fade out over time
+                local elapsed = tick() - tracer.startTime
+                local fadeProgress = elapsed / bullet_tracer_settings.fade_time
+                if fadeProgress >= 1 then
+                    line.Visible = false
+                    if outline then outline.Visible = false end
+                    connection:Disconnect()
+                    active_tracers[tracerId] = nil
+                else
+                    local alpha = 1 - fadeProgress
+                    line.Transparency = 1 - (alpha * (1 - bullet_tracer_settings.line_transparency))
+                    if outline then
+                        outline.Transparency = 1 - (alpha * (1 - bullet_tracer_settings.line_transparency))
+                    end
+                end
+            else
+                line.Visible = false
+                if outline then outline.Visible = false end
+            end
+        end)
+        
+        tracer_connections[tracerId] = connection
+        
+    elseif bullet_tracer_settings.tracer_type == "beam" then
+        -- 3D Beam tracer
+        local beamData = createBeamTracer(startPos, endPos, bullet_tracer_settings.beam_color, bullet_tracer_settings.beam_transparency, bullet_tracer_settings.beam_width)
+        tracer.objects = beamData
+        
+        -- Cleanup after fade time
+        spawn(function()
+            wait(bullet_tracer_settings.fade_time)
+            for _, obj in pairs(beamData) do
+                if obj and obj.Parent then
+                    obj:Destroy()
+                end
+            end
+            active_tracers[tracerId] = nil
+        end)
+        
+    elseif bullet_tracer_settings.tracer_type == "trail" then
+        -- 3D Trail tracer
+        local trailData = createTrailTracer(startPos, endPos, bullet_tracer_settings.trail_color, bullet_tracer_settings.trail_transparency, bullet_tracer_settings.trail_lifetime)
+        tracer.objects = trailData
+        
+        -- Cleanup after trail lifetime + fade time
+        spawn(function()
+            wait(bullet_tracer_settings.trail_lifetime + bullet_tracer_settings.fade_time)
+            for _, obj in pairs(trailData) do
+                if obj and obj.Parent then
+                    obj:Destroy()
+                end
+            end
+            active_tracers[tracerId] = nil
+        end)
+        
+    elseif bullet_tracer_settings.tracer_type == "particle" then
+        -- 3D Particle tracer
+        spawn(function()
+            local particleData = createParticleTracer(startPos, endPos, bullet_tracer_settings.particle_color, bullet_tracer_settings.particle_size, bullet_tracer_settings.particle_speed)
+            tracer.objects = particleData
+            
+            -- Cleanup after particle lifetime
+            wait(bullet_tracer_settings.fade_time + 2)
+            for _, obj in pairs(particleData) do
+                if obj and obj.Parent then
+                    obj:Destroy()
+                end
+            end
+            active_tracers[tracerId] = nil
+        end)
+    end
+    
+    active_tracers[tracerId] = tracer
+end
+
+-- Bullet Detection (Hook into weapon fire events)
+local function hookBulletFiring()
+    -- This is a generic hook - you may need to adapt this for specific games
+    
+    -- Method 1: Hook into RemoteEvent firing (common for gun games)
+    local oldFireServer = nil
+    oldFireServer = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
+        if method == "FireServer" and self.Name:find("Fire") or self.Name:find("Shoot") or self.Name:find("Bullet") then
+            local args = {...}
+            local startPos = Camera.CFrame.Position
+            local direction = Camera.CFrame.LookVector
+            local endPos = startPos + direction * bullet_tracer_settings.max_distance
+            
+            -- Try to extract target position from arguments
+            for _, arg in pairs(args) do
+                if typeof(arg) == "Vector3" then
+                    endPos = arg
+                    break
+                elseif typeof(arg) == "CFrame" then
+                    endPos = arg.Position
+                    break
+                end
+            end
+            
+            createBulletTracer(startPos, endPos, Players.LocalPlayer)
+        end
+        return oldFireServer(self, ...)
+    end)
+    
+    -- Method 2: Monitor bullet parts being created
+    Workspace.ChildAdded:Connect(function(child)
+        if child.Name:find("Bullet") or child.Name:find("Projectile") or child.ClassName == "Part" then
+            wait(0.1) -- Small delay to ensure the part is set up
+            if child.Parent and child.AssemblyLinearVelocity then
+                local startPos = child.Position
+                local velocity = child.AssemblyLinearVelocity
+                local endPos = startPos + velocity.Unit * bullet_tracer_settings.max_distance
+                
+                createBulletTracer(startPos, endPos, nil)
+            end
+        end
+    end)
+    
+    -- Method 3: Monitor for muzzle flash effects (common indicator)
+    local function checkForMuzzleFlash(model)
+        if not model then return end
+        for _, part in pairs(model:GetDescendants()) do
+            if part:IsA("ParticleEmitter") and (part.Name:find("Flash") or part.Name:find("Muzzle")) then
+                part.Enabled = part.Enabled -- Trigger property change detection
+                local connection
+                connection = part:GetPropertyChangedSignal("Enabled"):Connect(function()
+                    if part.Enabled then
+                        local gun = part.Parent
+                        if gun and gun.Parent then
+                            local startPos = gun.Position
+                            local direction = gun.CFrame.LookVector
+                            local endPos = startPos + direction * bullet_tracer_settings.max_distance
+                            
+                            -- Try to find the player who owns this gun
+                            local character = gun.Parent.Parent
+                            local player = Players:GetPlayerFromCharacter(character)
+                            
+                            createBulletTracer(startPos, endPos, player)
+                        end
+                    end
+                end)
+            end
+        end
+    end
+    
+    -- Monitor all characters for muzzle flashes
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character then
+            checkForMuzzleFlash(player.Character)
+        end
+        player.CharacterAdded:Connect(checkForMuzzleFlash)
+    end
+    
+    Players.PlayerAdded:Connect(function(player)
+        player.CharacterAdded:Connect(checkForMuzzleFlash)
+    end)
+end
+
+-- Initialize bullet detection
+hookBulletFiring()
+
+-- Global functions for external control
+_G.EnableBulletTracer = function()
+    bullet_tracer_settings.enabled = true
+end
+
+_G.DisableBulletTracer = function()
+    bullet_tracer_settings.enabled = false
+    -- Clean up existing tracers
+    for id, connection in pairs(tracer_connections) do
+        connection:Disconnect()
+    end
+    tracer_connections = {}
+    
+    for id, tracer in pairs(active_tracers) do
+        if tracer.objects then
+            for _, obj in pairs(tracer.objects) do
+                if typeof(obj) == "Instance" and obj.Parent then
+                    obj:Destroy()
+                elseif obj and obj.Remove then
+                    obj:Remove()
+                end
+            end
+        end
+    end
+    active_tracers = {}
+end
+
+_G.SetBulletTracerType = function(tracerType)
+    if tracerType == "line" or tracerType == "beam" or tracerType == "trail" or tracerType == "particle" then
+        bullet_tracer_settings.tracer_type = tracerType
+    end
+end
+
+_G.SetBulletTracerColor = function(color)
+    bullet_tracer_settings.line_color = color
+    bullet_tracer_settings.beam_color = color
+    bullet_tracer_settings.trail_color = color
+    bullet_tracer_settings.particle_color = color
+end
+
+_G.SetBulletTracerTransparency = function(transparency)
+    bullet_tracer_settings.line_transparency = transparency
+    bullet_tracer_settings.beam_transparency = transparency
+    bullet_tracer_settings.trail_transparency = transparency
+end
+
+_G.SetBulletTracerThickness = function(thickness)
+    bullet_tracer_settings.line_thickness = thickness
+    bullet_tracer_settings.beam_width = thickness * 0.1
+end
+
+_G.SetBulletTracerFadeTime = function(fadeTime)
+    bullet_tracer_settings.fade_time = fadeTime
+end
+
+_G.SetBulletTracerMaxDistance = function(distance)
+    bullet_tracer_settings.max_distance = distance
+end
+
+_G.SetBulletTracerTeamCheck = function(enabled)
+    bullet_tracer_settings.teamcheck = enabled
+end
+
+_G.SetBulletTracerShowOwnBullets = function(enabled)
+    bullet_tracer_settings.show_own_bullets = enabled
+end
+
+_G.SetBulletTracerOutline = function(enabled)
+    bullet_tracer_settings.outline_enabled = enabled
+end
+
+_G.CreateCustomBulletTracer = function(startPos, endPos, shooter)
+    createBulletTracer(startPos, endPos, shooter)
+end
+
+_G.CleanupBulletTracer = function()
+    _G.DisableBulletTracer()
+end
+
+-- Cleanup on script termination
+pcall(function()
+    game:BindToClose(function()
+        _G.CleanupBulletTracer()
+    end)
+end)

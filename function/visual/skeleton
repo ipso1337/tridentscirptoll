@@ -1,69 +1,30 @@
--- Improved Skeleton ESP Script with better architecture
--- Based on the logic from the second script
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
 
--- Required dependencies and services
-local workspace = cloneref and cloneref(game:GetService("Workspace")) or game:GetService("Workspace")
-local Players = cloneref and cloneref(game:GetService("Players")) or game:GetService("Players")
-local RunService = cloneref and cloneref(game:GetService("RunService")) or game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-
--- Main cheat table
-local SkeletonESP = {
-    connections = {
-        renderstepped = {}
-    },
-    drawings = {},
-    loaded_players = {},
-    __loaded = false
+-- Hardcoded Skeleton ESP Settings
+local skeleton_esp_settings = {
+    enabled = true, -- Master toggle for Skeleton ESP
+    line_color = Color3.new(1, 1, 1), -- White
+    line_transparency = 0, -- 0 = fully opaque, 1 = fully transparent
+    line_thickness = 2, -- Line thickness
+    outline_enabled = true, -- Enable outline
+    outline_color = Color3.new(0, 0, 0), -- Black outline
+    outline_thickness = 3, -- Outline thickness
+    head_circle_enabled = true, -- Enable head circle
+    head_circle_color = Color3.new(1, 0, 0), -- Red head circle
+    head_circle_size = 6, -- Head circle radius
+    head_circle_filled = false, -- Fill head circle
+    teamcheck = false, -- Disable team check
+    team_color = false, -- Use team colors
+    maxdistance = 200, -- Maximum distance for ESP rendering
+    distancelimit = false, -- Disable distance limit
+    autothickness = true -- Auto adjust thickness based on distance
 }
 
--- Settings
-SkeletonESP.settings = {
-    skeleton_enabled = true,
-    skeleton_color = Color3.fromRGB(255, 255, 255),
-    skeleton_transparency = 1,
-    skeleton_thickness = 2,
-    head_size = 8,
-    team_check = false,
-    team_color = false,
-    autothickness = true,
-    distance_limit = false,
-    max_distance = 200
-}
-
--- Utility functions
-SkeletonESP.utility = {}
-
-SkeletonESP.utility.new_renderstepped = function(func)
-    local obj = {}
-    SkeletonESP.connections.renderstepped[func] = func
-    function obj:Disconnect()
-        if func then
-            SkeletonESP.connections.renderstepped[func] = nil
-            func = nil
-        end
-    end
-    return obj
-end
-
-SkeletonESP.utility.new_drawing = function(drawobj, args)
-    local obj = Drawing.new(drawobj)
-    for i, v in pairs(args or {}) do
-        obj[i] = v
-    end
-    SkeletonESP.drawings[obj] = obj
-    return obj
-end
-
--- Initialize render connection
-local render_connection = RunService.RenderStepped:Connect(function(delta)
-    for _, func in pairs(SkeletonESP.connections.renderstepped) do
-        pcall(func, delta)
-    end
-end)
-
--- Skeleton bone structure for R15 and R6
+-- Skeleton bone connections for R15 and R6
 local skeleton_bones = {
     R15 = {
         ["Head"] = "UpperTorso",
@@ -90,328 +51,357 @@ local skeleton_bones = {
     }
 }
 
--- Helper functions
-local function hasCharacter(player)
-    return player and player.Character and 
-           player.Character:FindFirstChild("HumanoidRootPart") and 
-           player.Character:FindFirstChild("Humanoid") and
-           player ~= LocalPlayer
+-- Utility Functions
+local function worldToScreen(world)
+    local screen, inBounds = Camera:WorldToViewportPoint(world)
+    return Vector2.new(screen.X, screen.Y), inBounds, screen.Z
 end
 
-local function worldToScreen(position)
-    local screen, onScreen = Camera:WorldToViewportPoint(position)
-    return Vector2.new(screen.X, screen.Y), onScreen, screen.Z
+local function createLine(color, thickness)
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.From = Vector2.new(0, 0)
+    line.To = Vector2.new(0, 0)
+    line.Color = color
+    line.Thickness = thickness
+    line.Transparency = 1 - skeleton_esp_settings.line_transparency
+    line.ZIndex = 2
+    return line
 end
 
-local function getPlayerColor(player)
-    local color = SkeletonESP.settings.skeleton_color
-    
-    if SkeletonESP.settings.team_check and LocalPlayer.Team then
-        if player.Team == LocalPlayer.Team then
-            color = Color3.fromRGB(0, 255, 0) -- Green for teammates
-        else
-            color = Color3.fromRGB(255, 0, 0) -- Red for enemies
-        end
-    elseif SkeletonESP.settings.team_color and player.Team then
-        color = player.TeamColor.Color
-    end
-    
-    return color
+local function createOutline(color, thickness)
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.From = Vector2.new(0, 0)
+    line.To = Vector2.new(0, 0)
+    line.Color = color
+    line.Thickness = thickness
+    line.Transparency = 1 - skeleton_esp_settings.line_transparency
+    line.ZIndex = 1
+    return line
+end
+
+local function createHeadCircle(color, size, filled)
+    local circle = Drawing.new("Circle")
+    circle.Visible = false
+    circle.Position = Vector2.new(0, 0)
+    circle.Radius = size
+    circle.Color = color
+    circle.Thickness = skeleton_esp_settings.line_thickness
+    circle.Filled = filled
+    circle.Transparency = 1 - skeleton_esp_settings.line_transparency
+    circle.ZIndex = 3
+    return circle
 end
 
 local function calculateThickness(distance)
-    if SkeletonESP.settings.autothickness then
-        return math.clamp(1/distance*100, 1, 4)
+    if skeleton_esp_settings.autothickness then
+        return math.clamp(skeleton_esp_settings.line_thickness * (100 / distance), 1, 4)
     end
-    return SkeletonESP.settings.skeleton_thickness
+    return skeleton_esp_settings.line_thickness
 end
 
--- Main ESP creation function
-local function createPlayerESP(player)
-    if not hasCharacter(player) then return end
+-- Skeleton ESP Management
+local loaded_players = {}
+
+local function create_skeleton_esp(model)
+    if not (model and model:FindFirstChild("HumanoidRootPart")) then
+        return
+    end
     
-    local character = player.Character
-    local humanoid = character:FindFirstChild("Humanoid")
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    
-    if not humanoid or not humanoidRootPart then return end
+    -- Find player object for team checks
+    local player = nil
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character == model then
+            player = p
+            break
+        end
+    end
     
     -- Determine rig type
-    local isR15 = humanoid.RigType == Enum.HumanoidRigType.R15
+    local humanoid = model:FindFirstChild("Humanoid")
+    local isR15 = humanoid and humanoid.RigType == Enum.HumanoidRigType.R15
     local bones = isR15 and skeleton_bones.R15 or skeleton_bones.R6
     
-    -- Create ESP object for player
-    local playerESP = {
-        player = player,
-        character = character,
-        drawings = {},
-        connection = nil,
-        isR15 = isR15
-    }
+    local lines = {}
+    local outlines = {}
+    local head_circle = nil
+    local head_outline = nil
     
-    -- Create drawing objects for skeleton
-    for boneName, _ in pairs(bones) do
-        playerESP.drawings["line_" .. boneName] = SkeletonESP.utility.new_drawing("Line", {
-            Visible = false,
-            Color = SkeletonESP.settings.skeleton_color,
-            Thickness = SkeletonESP.settings.skeleton_thickness,
-            Transparency = SkeletonESP.settings.skeleton_transparency
-        })
+    -- Create lines and outlines for each bone connection
+    for boneName, parentName in pairs(bones) do
+        lines[boneName] = createLine(skeleton_esp_settings.line_color, skeleton_esp_settings.line_thickness)
+        if skeleton_esp_settings.outline_enabled then
+            outlines[boneName] = createOutline(skeleton_esp_settings.outline_color, skeleton_esp_settings.outline_thickness)
+        end
     end
     
     -- Create head circle
-    playerESP.drawings.head_circle = SkeletonESP.utility.new_drawing("Circle", {
-        Visible = false,
-        Color = SkeletonESP.settings.skeleton_color,
-        Thickness = SkeletonESP.settings.skeleton_thickness,
-        Radius = SkeletonESP.settings.head_size,
-        Filled = false,
-        Transparency = SkeletonESP.settings.skeleton_transparency
-    })
-    
-    -- Update function for this player
-    function playerESP:update()
-        if not hasCharacter(self.player) then
-            return self:setVisible(false)
-        end
-        
-        local character = self.player.Character
-        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-        local humanoid = character:FindFirstChild("Humanoid")
-        
-        if not humanoidRootPart or not humanoid or humanoid.Health <= 0 then
-            return self:setVisible(false)
-        end
-        
-        -- Distance check
-        local distance = (Camera.CFrame.Position - humanoidRootPart.Position).Magnitude
-        if SkeletonESP.settings.distance_limit and distance > SkeletonESP.settings.max_distance then
-            return self:setVisible(false)
-        end
-        
-        -- Screen position check
-        local _, onScreen = worldToScreen(humanoidRootPart.Position)
-        if not onScreen then
-            return self:setVisible(false)
-        end
-        
-        self:setVisible(true)
-        
-        -- Update colors and thickness
-        local color = getPlayerColor(self.player)
-        local thickness = calculateThickness(distance)
-        
-        -- Draw skeleton
-        if SkeletonESP.settings.skeleton_enabled then
-            self:drawSkeleton(character, color, thickness)
+    if skeleton_esp_settings.head_circle_enabled then
+        head_circle = createHeadCircle(skeleton_esp_settings.head_circle_color, skeleton_esp_settings.head_circle_size, skeleton_esp_settings.head_circle_filled)
+        if skeleton_esp_settings.outline_enabled then
+            head_outline = createHeadCircle(skeleton_esp_settings.outline_color, skeleton_esp_settings.head_circle_size + 1, false)
         end
     end
     
-    function playerESP:drawSkeleton(character, color, thickness)
-        local bones = self.isR15 and skeleton_bones.R15 or skeleton_bones.R6
-        
-        -- Update head circle
-        local head = character:FindFirstChild("Head")
-        if head then
-            local headPos, headOnScreen = worldToScreen(head.Position)
-            if headOnScreen then
-                self.drawings.head_circle.Position = headPos
-                self.drawings.head_circle.Color = color
-                self.drawings.head_circle.Thickness = thickness
-                self.drawings.head_circle.Visible = true
+    loaded_players[model] = {
+        player = player,
+        isR15 = isR15,
+        bones = bones,
+        obj = {
+            lines = lines,
+            outlines = outlines,
+            head_circle = head_circle,
+            head_outline = head_outline
+        },
+        connection = nil
+    }
+    
+    local plr_data = loaded_players[model]
+    local obj = plr_data.obj
+    local character = model
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    local humanoid = model:FindFirstChild("Humanoid")
+
+    plr_data.connection = RunService.RenderStepped:Connect(function()
+        if not (skeleton_esp_settings.enabled and hrp and character and character.Parent) then
+            -- Hide all objects
+            for _, line in pairs(obj.lines) do
+                line.Visible = false
             end
+            for _, outline in pairs(obj.outlines) do
+                outline.Visible = false
+            end
+            if obj.head_circle then obj.head_circle.Visible = false end
+            if obj.head_outline then obj.head_outline.Visible = false end
+            return
         end
         
+        -- Check if character is alive
+        if humanoid and humanoid.Health <= 0 then
+            for _, line in pairs(obj.lines) do
+                line.Visible = false
+            end
+            for _, outline in pairs(obj.outlines) do
+                outline.Visible = false
+            end
+            if obj.head_circle then obj.head_circle.Visible = false end
+            if obj.head_outline then obj.head_outline.Visible = false end
+            return
+        end
+
+        local _, onScreen = worldToScreen(hrp.Position)
+        if not onScreen then
+            for _, line in pairs(obj.lines) do
+                line.Visible = false
+            end
+            for _, outline in pairs(obj.outlines) do
+                outline.Visible = false
+            end
+            if obj.head_circle then obj.head_circle.Visible = false end
+            if obj.head_outline then obj.head_outline.Visible = false end
+            return
+        end
+
+        -- Distance check
+        local distance = (Camera.CFrame.Position - hrp.Position).Magnitude
+        if skeleton_esp_settings.distancelimit and distance > skeleton_esp_settings.maxdistance then
+            for _, line in pairs(obj.lines) do
+                line.Visible = false
+            end
+            for _, outline in pairs(obj.outlines) do
+                outline.Visible = false
+            end
+            if obj.head_circle then obj.head_circle.Visible = false end
+            if obj.head_outline then obj.head_outline.Visible = false end
+            return
+        end
+
+        -- Team check
+        if skeleton_esp_settings.teamcheck and plr_data.player and Players.LocalPlayer then
+            if plr_data.player.Team == Players.LocalPlayer.Team then
+                for _, line in pairs(obj.lines) do
+                    line.Visible = false
+                end
+                for _, outline in pairs(obj.outlines) do
+                    outline.Visible = false
+                end
+                if obj.head_circle then obj.head_circle.Visible = false end
+                if obj.head_outline then obj.head_outline.Visible = false end
+                return
+            end
+        end
+
+        -- Determine colors
+        local lineColor = skeleton_esp_settings.line_color
+        local headColor = skeleton_esp_settings.head_circle_color
+        if skeleton_esp_settings.team_color and plr_data.player and plr_data.player.TeamColor then
+            lineColor = plr_data.player.TeamColor.Color
+            headColor = plr_data.player.TeamColor.Color
+        end
+
+        -- Calculate thickness based on distance
+        local thickness = calculateThickness(distance)
+        local outlineThickness = skeleton_esp_settings.outline_enabled and (thickness + 1) or thickness
+
+        -- Draw head circle
+        if skeleton_esp_settings.head_circle_enabled and obj.head_circle then
+            local head = character:FindFirstChild("Head")
+            if head then
+                local headPos, headOnScreen = worldToScreen(head.Position)
+                if headOnScreen then
+                    -- Draw head outline first
+                    if obj.head_outline then
+                        obj.head_outline.Position = headPos
+                        obj.head_outline.Radius = skeleton_esp_settings.head_circle_size + 1
+                        obj.head_outline.Color = skeleton_esp_settings.outline_color
+                        obj.head_outline.Thickness = outlineThickness
+                        obj.head_outline.Visible = skeleton_esp_settings.outline_enabled
+                    end
+                    
+                    -- Draw head circle
+                    obj.head_circle.Position = headPos
+                    obj.head_circle.Radius = skeleton_esp_settings.head_circle_size
+                    obj.head_circle.Color = headColor
+                    obj.head_circle.Thickness = thickness
+                    obj.head_circle.Transparency = 1 - skeleton_esp_settings.line_transparency
+                    obj.head_circle.Visible = true
+                else
+                    obj.head_circle.Visible = false
+                    if obj.head_outline then obj.head_outline.Visible = false end
+                end
+            else
+                obj.head_circle.Visible = false
+                if obj.head_outline then obj.head_outline.Visible = false end
+            end
+        end
+
         -- Draw skeleton lines
-        for boneName, parentName in pairs(bones) do
+        for boneName, parentName in pairs(plr_data.bones) do
             local bone = character:FindFirstChild(boneName)
             local parentBone = character:FindFirstChild(parentName)
-            local lineObj = self.drawings["line_" .. boneName]
+            local line = obj.lines[boneName]
+            local outline = obj.outlines[boneName]
             
-            if bone and parentBone and lineObj then
+            if bone and parentBone and line then
                 local bonePos, boneOnScreen = worldToScreen(bone.Position)
                 local parentPos, parentOnScreen = worldToScreen(parentBone.Position)
                 
                 if boneOnScreen and parentOnScreen then
-                    lineObj.From = bonePos
-                    lineObj.To = parentPos
-                    lineObj.Color = color
-                    lineObj.Thickness = thickness
-                    lineObj.Visible = true
+                    -- Draw outline first (thicker, behind)
+                    if skeleton_esp_settings.outline_enabled and outline then
+                        outline.From = bonePos
+                        outline.To = parentPos
+                        outline.Color = skeleton_esp_settings.outline_color
+                        outline.Thickness = outlineThickness
+                        outline.Transparency = 1 - skeleton_esp_settings.line_transparency
+                        outline.Visible = true
+                    end
+                    
+                    -- Draw main line (thinner, in front)
+                    line.From = bonePos
+                    line.To = parentPos
+                    line.Color = lineColor
+                    line.Thickness = thickness
+                    line.Transparency = 1 - skeleton_esp_settings.line_transparency
+                    line.Visible = true
                 else
-                    lineObj.Visible = false
+                    line.Visible = false
+                    if outline then outline.Visible = false end
                 end
-            elseif lineObj then
-                lineObj.Visible = false
+            else
+                if line then line.Visible = false end
+                if outline then outline.Visible = false end
             end
         end
-        
-        -- Special handling for R6 limb connections
-        if not self.isR15 then
-            self:drawR6LimbConnections(character, color, thickness)
-        end
-    end
-    
-    function playerESP:drawR6LimbConnections(character, color, thickness)
-        local torso = character:FindFirstChild("Torso")
-        if not torso then return end
-        
-        local limbs = {"Left Arm", "Right Arm", "Left Leg", "Right Leg"}
-        for _, limbName in pairs(limbs) do
-            local limb = character:FindFirstChild(limbName)
-            local lineObj = self.drawings["line_" .. limbName]
-            
-            if limb and lineObj then
-                -- Calculate limb endpoints for R6
-                local limbHeight = limb.Size.Y / 2 - 0.2
-                local upperPos = worldToScreen((limb.CFrame * CFrame.new(0, limbHeight, 0)).Position)
-                local lowerPos = worldToScreen((limb.CFrame * CFrame.new(0, -limbHeight, 0)).Position)
-                
-                lineObj.From = upperPos
-                lineObj.To = lowerPos
-                lineObj.Color = color
-                lineObj.Thickness = thickness
-                lineObj.Visible = true
-            end
-        end
-    end
-    
-    function playerESP:setVisible(visible)
-        for _, drawing in pairs(self.drawings) do
-            drawing.Visible = visible
-        end
-    end
-    
-    function playerESP:destroy()
-        if self.connection then
-            self.connection:Disconnect()
-        end
-        for _, drawing in pairs(self.drawings) do
-            drawing:Remove()
-        end
-        SkeletonESP.loaded_players[self.player] = nil
-    end
-    
-    -- Start update loop for this player
-    playerESP.connection = SkeletonESP.utility.new_renderstepped(function()
-        playerESP:update()
     end)
-    
-    SkeletonESP.loaded_players[player] = playerESP
 end
 
--- Destroy player ESP
-local function destroyPlayerESP(player)
-    local playerESP = SkeletonESP.loaded_players[player]
-    if playerESP then
-        playerESP:destroy()
+local function destroy_skeleton_esp(model)
+    local plr_data = loaded_players[model]
+    if not plr_data then return end
+    
+    if plr_data.connection then
+        plr_data.connection:Disconnect()
     end
+    
+    for _, line in pairs(plr_data.obj.lines) do
+        line:Remove()
+    end
+    
+    for _, outline in pairs(plr_data.obj.outlines) do
+        outline:Remove()
+    end
+    
+    if plr_data.obj.head_circle then
+        plr_data.obj.head_circle:Remove()
+    end
+    
+    if plr_data.obj.head_outline then
+        plr_data.obj.head_outline:Remove()
+    end
+    
+    loaded_players[model] = nil
 end
 
--- Main ESP functions
-function SkeletonESP.load()
-    if SkeletonESP.__loaded then
-        warn("[SkeletonESP] Already loaded!")
-        return
-    end
-    
-    -- Create ESP for existing players
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            createPlayerESP(player)
-        end
-    end
-    
-    -- Handle new players
-    SkeletonESP.playerAdded = Players.PlayerAdded:Connect(function(player)
-        player.CharacterAdded:Connect(function()
-            task.wait(0.1) -- Small delay to ensure character is fully loaded
-            createPlayerESP(player)
-        end)
-        
-        if player.Character then
-            createPlayerESP(player)
-        end
-    end)
-    
-    -- Handle player removal
-    SkeletonESP.playerRemoving = Players.PlayerRemoving:Connect(function(player)
-        destroyPlayerESP(player)
-    end)
-    
-    -- Handle character respawning for existing players
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            player.CharacterAdded:Connect(function()
-                task.wait(0.1)
-                createPlayerESP(player)
-            end)
-            
-            player.CharacterRemoving:Connect(function()
-                destroyPlayerESP(player)
-            end)
-        end
-    end
-    
-    SkeletonESP.__loaded = true
-    print("[SkeletonESP] Loaded successfully!")
+-- Initialize Skeleton ESP for existing players
+for _, v in ipairs(Workspace:GetChildren()) do
+    create_skeleton_esp(v)
 end
 
-function SkeletonESP.unload()
-    if not SkeletonESP.__loaded then
-        warn("[SkeletonESP] Not loaded yet!")
-        return
-    end
-    
-    -- Disconnect connections
-    if SkeletonESP.playerAdded then
-        SkeletonESP.playerAdded:Disconnect()
-    end
-    if SkeletonESP.playerRemoving then
-        SkeletonESP.playerRemoving:Disconnect()
-    end
-    if render_connection then
-        render_connection:Disconnect()
-    end
-    
-    -- Clear all render connections
-    for func, _ in pairs(SkeletonESP.connections.renderstepped) do
-        SkeletonESP.connections.renderstepped[func] = nil
-    end
-    
-    -- Destroy all player ESP
-    for player, _ in pairs(SkeletonESP.loaded_players) do
-        destroyPlayerESP(player)
-    end
-    
-    -- Remove all drawings
-    for drawing, _ in pairs(SkeletonESP.drawings) do
-        drawing:Remove()
-        SkeletonESP.drawings[drawing] = nil
-    end
-    
-    SkeletonESP.__loaded = false
-    print("[SkeletonESP] Unloaded successfully!")
-end
+-- Handle player addition and removal
+Workspace.ChildAdded:Connect(create_skeleton_esp)
+Workspace.ChildRemoved:Connect(destroy_skeleton_esp)
 
--- Update all players (refresh settings)
-function SkeletonESP.updateAll()
-    for _, playerESP in pairs(SkeletonESP.loaded_players) do
-        -- Force update will happen automatically on next render frame
-    end
-end
-
--- Global functions for compatibility
-_G.SkeletonESP = SkeletonESP
-_G.EnableSkeletonESP = function()
-    SkeletonESP.settings.skeleton_enabled = true
-end
+-- Global functions for external control
 _G.DisableSkeletonESP = function()
-    SkeletonESP.settings.skeleton_enabled = false
+    skeleton_esp_settings.enabled = false
 end
-_G.CleanupSkeletonESP = SkeletonESP.unload
 
--- Auto-load
-SkeletonESP.load()
+_G.EnableSkeletonESP = function()
+    skeleton_esp_settings.enabled = true
+end
 
-return SkeletonESP
+_G.CleanupSkeletonESP = function()
+    for model, plr_data in pairs(loaded_players) do
+        destroy_skeleton_esp(model)
+    end
+end
+
+-- Additional settings functions
+_G.SetSkeletonOutlineEnabled = function(enabled)
+    skeleton_esp_settings.outline_enabled = enabled
+end
+
+_G.SetSkeletonHeadCircleEnabled = function(enabled)
+    skeleton_esp_settings.head_circle_enabled = enabled
+end
+
+_G.SetSkeletonLineColor = function(color)
+    skeleton_esp_settings.line_color = color
+end
+
+_G.SetSkeletonHeadColor = function(color)
+    skeleton_esp_settings.head_circle_color = color
+end
+
+_G.SetSkeletonTeamCheck = function(enabled)
+    skeleton_esp_settings.teamcheck = enabled
+end
+
+_G.SetSkeletonTeamColor = function(enabled)
+    skeleton_esp_settings.team_color = enabled
+end
+
+_G.SetSkeletonAutoThickness = function(enabled)
+    skeleton_esp_settings.autothickness = enabled
+end
+
+-- Cleanup on script termination (if needed)
+pcall(function()
+    game:BindToClose(function()
+        for model, plr_data in pairs(loaded_players) do
+            destroy_skeleton_esp(model)
+        end
+    end)
+end)

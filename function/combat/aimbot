@@ -11,6 +11,32 @@ local Shake = 5
 local HitPart = "Head"
 local Keybind = Enum.KeyCode.C
 
+-- All available skeleton parts
+local skeleton_parts = {
+	"Head", "Torso", "LowerTorso", "LeftUpperArm", "RightUpperArm", 
+	"LeftLowerArm", "RightLowerArm", "LeftHand", "RightHand", 
+	"LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg", 
+	"LeftFoot", "RightFoot", "HumanoidRootPart"
+}
+
+-- Skeleton connection order
+local skeleton_order = {
+	["LeftFoot"] = "LeftLowerLeg",
+	["LeftLowerLeg"] = "LeftUpperLeg",
+	["LeftUpperLeg"] = "LowerTorso",
+	["RightFoot"] = "RightLowerLeg",
+	["RightLowerLeg"] = "RightUpperLeg",
+	["RightUpperLeg"] = "LowerTorso",
+	["LeftHand"] = "LeftLowerArm",
+	["LeftLowerArm"] = "LeftUpperArm",
+	["LeftUpperArm"] = "Torso",
+	["RightHand"] = "RightLowerArm",
+	["RightLowerArm"] = "RightUpperArm",
+	["RightUpperArm"] = "Torso",
+	["LowerTorso"] = "Torso",
+	["Torso"] = "Head"
+}
+
 -- Visible Check
 local function isVisible(part)
 	local origin = Camera.CFrame.Position
@@ -23,19 +49,42 @@ local function isVisible(part)
 	return result and result.Instance and part:IsDescendantOf(result.Instance:FindFirstAncestorOfClass("Model"))
 end
 
+-- Check if a part exists in character
+local function partExists(character, partName)
+	return character and character:FindFirstChild(partName)
+end
+
 -- Get Closest Target
 local function getClosest()
 	local closest = nil
 	local shortest = math.huge
+	
 	for _, plr in pairs(Players:GetPlayers()) do
-		if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild(HitPart) then
-			local part = plr.Character[HitPart]
-			local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-			if onScreen and isVisible(part) then
-				local dist = (Vector2.new(screenPos.X, screenPos.Y) - UserInputService:GetMouseLocation()).Magnitude
-				if dist < shortest and dist <= FOV * 10 then
-					shortest = dist
-					closest = part
+		if plr ~= LocalPlayer and plr.Character then
+			local part = nil
+			
+			-- Try to find the specified hit part
+			if partExists(plr.Character, HitPart) then
+				part = plr.Character[HitPart]
+			else
+				-- If the specified part doesn't exist, try to find any available skeleton part
+				for _, skelPart in ipairs(skeleton_parts) do
+					if partExists(plr.Character, skelPart) then
+						part = plr.Character[skelPart]
+						break
+					end
+				end
+			end
+			
+			-- If we found a valid part, check visibility and distance
+			if part then
+				local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+				if onScreen and isVisible(part) then
+					local dist = (Vector2.new(screenPos.X, screenPos.Y) - UserInputService:GetMouseLocation()).Magnitude
+					if dist < shortest and dist <= FOV * 10 then
+						shortest = dist
+						closest = part
+					end
 				end
 			end
 		end
@@ -102,6 +151,7 @@ end
 _G.EnableAimbot = function() 
 	AimbotEnabled = true 
 	print("Aimbot enabled with keybind:", Keybind.Name)
+	print("Target part:", HitPart)
 end
 
 _G.DisableAimbot = function() 
@@ -125,8 +175,21 @@ _G.SetAimbotShake = function(v)
 end
 
 _G.SetAimbotPart = function(v) 
-	HitPart = v 
-	print("Aimbot target part set to:", v)
+	-- Validate the part name
+	local validPart = false
+	for _, skelPart in ipairs(skeleton_parts) do
+		if skelPart == v then
+			validPart = true
+			break
+		end
+	end
+	
+	if validPart then
+		HitPart = v 
+		print("Aimbot target part set to:", v)
+	else
+		print("Invalid part name:", v, "- keeping current part:", HitPart)
+	end
 end
 
 _G.SetAimbotKeybind = function(v)
@@ -158,5 +221,7 @@ end
 -- Cleanup on script unload
 _G.CleanupAimbot = cleanup
 
+-- Print available parts for debugging
 print("Aimbot script loaded successfully!")
 print("Current keybind:", Keybind.Name)
+print("Available skeleton parts:", table.concat(skeleton_parts, ", "))

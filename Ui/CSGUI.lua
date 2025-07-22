@@ -140,8 +140,8 @@ local LongNeckToggle = CombatGroupBox:AddToggle("LongNeckToggle", {
 local LongNeckKeybind = LongNeckToggle:AddKeyPicker("LongNeckKeybind", {
 	Default = "F",
 	Text = "Long Neck Keybind",
-	Mode = "Toggle", -- Options: "Toggle", "Hold", "Always"
-	-- Sets the toggle's value according to the keybind state if Mode is Toggle
+	Mode = "Toggle",
+	Modes = {"Always", "Toggle", "Hold"},
 	SyncToggleState = true,
 	Callback = function(Value)
 		print("Long Neck keybind pressed, value:", Value)

@@ -8,6 +8,9 @@ local Toggles = Library.Toggles
 Library.ForceCheckbox = false
 Library.ShowToggleFrameInKeybinds = true
 
+-- Global sleep check setting that affects all features
+_G.GlobalSleepCheck = true
+
 local Window = Library:CreateWindow({
 	Title = "Custom Script",
 	Footer = "version: 1.0",
@@ -38,6 +41,10 @@ CombatGroupBox:AddToggle("HitboxToggle", {
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/combat/hitbox"))()
 				if _G.EnableHitboxExpander then 
 					_G.EnableHitboxExpander() 
+				end
+				-- Apply global sleep check setting
+				if _G.SetHitboxSleepCheck then 
+					_G.SetHitboxSleepCheck(_G.GlobalSleepCheck) 
 				end
 			end)
 			if success then
@@ -118,6 +125,10 @@ local LongNeckToggle = CombatGroupBox:AddToggle("LongNeckToggle", {
 				if _G.EnableLongNeck then 
 					_G.EnableLongNeck() 
 				end
+				-- Apply global sleep check setting
+				if _G.SetLongNeckSleepCheck then 
+					_G.SetLongNeckSleepCheck(_G.GlobalSleepCheck) 
+				end
 			end)
 			if success then
 				Library:Notify({ Title = "Long Neck", Description = "Long Neck enabled!", Time = 2 })
@@ -170,6 +181,10 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 				if _G.EnableCornerESP then 
 					_G.EnableCornerESP() 
 				end
+				-- Apply global sleep check setting
+				if _G.SetCornerESPSleepCheck then 
+					_G.SetCornerESPSleepCheck(_G.GlobalSleepCheck) 
+				end
 			end)
 			if success then
 				Library:Notify({ Title = "View Mode", Description = "Corner ESP loaded", Time = 2 })
@@ -184,6 +199,10 @@ VisualGroupBox:AddDropdown("ViewModeDropdown", {
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/3D"))()
 				if _G.EnableBoxESP then 
 					_G.EnableBoxESP() 
+				end
+				-- Apply global sleep check setting
+				if _G.SetBoxESPSleepCheck then 
+					_G.SetBoxESPSleepCheck(_G.GlobalSleepCheck) 
 				end
 			end)
 			if success then
@@ -207,6 +226,10 @@ VisualGroupBox:AddToggle("NametagToggle", {
 				if _G.EnableNametags then 
 					_G.EnableNametags() 
 				end
+				-- Apply global sleep check setting
+				if _G.SetNametagsSleepCheck then 
+					_G.SetNametagsSleepCheck(_G.GlobalSleepCheck) 
+				end
 			end)
 			if success then
 				Library:Notify({ Title = "Nametag", Description = "Nametag enabled!", Time = 2 })
@@ -224,16 +247,26 @@ VisualGroupBox:AddToggle("NametagToggle", {
 
 VisualGroupBox:AddToggle("SleepCheckToggle", {
 	Default = true,
-	Text = "Sleep Check",
-	Tooltip = "Hide nametags for sleeping players",
+	Text = "Show Sleepers",
+	Tooltip = "Show ESP and features for sleeping players (affects ALL features including combat)",
 
 	Callback = function(Value)
+		_G.GlobalSleepCheck = not Value -- Inverted logic: Show Sleepers = true means don't hide sleepers
+		
+		-- Update all individual feature sleep checks
 		if _G.SetNametagsSleepCheck then 
-			_G.SetNametagsSleepCheck(Value) 
+			_G.SetNametagsSleepCheck(not Value) 
 		end
+		if _G.SetCornerESPSleepCheck then 
+			_G.SetCornerESPSleepCheck(not Value) 
+		end
+		if _G.SetBoxESPSleepCheck then 
+			_G.SetBoxESPSleepCheck(not Value) 
+		end
+		
 		Library:Notify({ 
-			Title = "Sleep Check", 
-			Description = Value and "Sleep Check enabled" or "Sleep Check disabled", 
+			Title = "Show Sleepers", 
+			Description = Value and "Sleepers will be shown in ALL features" or "Sleepers will be hidden in ALL features", 
 			Time = 2 
 		})
 	end,
@@ -256,99 +289,6 @@ VisualGroupBox:AddToggle("ShowWeaponsToggle", {
 	end,
 })
 
-VisualGroupBox:AddLabel("Chams")
-
-VisualGroupBox:AddToggle("ChamsToggle", {
-	Default = false,
-	Text = "Enable Chams",
-	Tooltip = "Enable wallhacks through materials",
-
-	Callback = function(Value)
-		if Value then
-			local success, err = pcall(function()
-				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/chams"))()
-				if _G.EnableChams then 
-					_G.EnableChams() 
-				end
-			end)
-			if success then
-				Library:Notify({ Title = "Chams", Description = "Chams enabled!", Time = 2 })
-			else
-				Library:Notify({ Title = "Chams", Description = "Failed to load Chams: " .. tostring(err), Time = 3 })
-			end
-		else
-			if _G.DisableChams then 
-				_G.DisableChams() 
-			end
-			Library:Notify({ Title = "Chams", Description = "Chams disabled", Time = 2 })
-		end
-	end,
-})
-
-VisualGroupBox:AddDropdown("ChamsMaterial", {
-	Values = { "ForceField", "Neon", "Glass", "Ice", "Plastic", "SmoothPlastic", "Metal", "CorrodedMetal" },
-	Default = 1,
-	Multi = false,
-	Text = "Chams Material",
-	Callback = function(Value)
-		local material = Enum.Material[Value]
-		if _G.SetChamsMaterial then 
-			_G.SetChamsMaterial(material) 
-		end
-	end,
-})
-
-VisualGroupBox:AddSlider("ChamsTransparency", {
-	Text = "Chams Transparency",
-	Default = 50,
-	Min = 0,
-	Max = 100,
-	Rounding = 0,
-	Callback = function(Value)
-		if _G.SetChamsTransparency then 
-			_G.SetChamsTransparency(Value / 100) 
-		end
-	end,
-})
-
-VisualGroupBox:AddToggle("ChamsTeamCheck", {
-	Default = false,
-	Text = "Team Check",
-	Tooltip = "Don't apply chams to teammates",
-
-	Callback = function(Value)
-		if _G.SetChamsTeamCheck then 
-			_G.SetChamsTeamCheck(Value) 
-		end
-	end,
-})
-
-VisualGroupBox:AddToggle("ChamsDistanceLimit", {
-	Default = false,
-	Text = "Distance Limit",
-	Tooltip = "Limit chams by distance",
-
-	Callback = function(Value)
-		if _G.SetChamsDistanceLimit then 
-			_G.SetChamsDistanceLimit(Value) 
-		end
-	end,
-})
-
-VisualGroupBox:AddSlider("ChamsMaxDistance", {
-	Text = "Max Distance",
-	Default = 200,
-	Min = 50,
-	Max = 500,
-	Rounding = 0,
-	Suffix = " studs",
-	Callback = function(Value)
-		if _G.SetChamsMaxDistance then 
-			_G.SetChamsMaxDistance(Value) 
-		end
-	end,
-})
-
 VisualGroupBox:AddToggle("WatermarkToggle", {
 	Default = false,
 	Text = "Show Watermark",
@@ -368,6 +308,10 @@ VisualGroupBox:AddToggle("WatermarkToggle", {
 			end
 			if _G.EnableWatermark then 
 				_G.EnableWatermark() 
+			end
+			-- Apply global sleep check setting
+			if _G.SetWatermarkSleepCheck then 
+				_G.SetWatermarkSleepCheck(_G.GlobalSleepCheck) 
 			end
 			Library:Notify({ Title = "Watermark", Description = "Watermark enabled!", Time = 2 })
 		else
@@ -394,6 +338,10 @@ MiscGroupBox:AddToggle("BeterSlideToggle", {
 				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/misc/beterslide"))()
 				if _G.EnableBeterSlide then 
 					_G.EnableBeterSlide() 
+				end
+				-- Apply global sleep check setting
+				if _G.SetBeterSlideSleepCheck then 
+					_G.SetBeterSlideSleepCheck(_G.GlobalSleepCheck) 
 				end
 			end)
 			if success then
@@ -498,8 +446,7 @@ MenuGroup:AddButton({
 			"CleanupHitboxExpander",
 			"CleanupBeterSlide",
 			"CleanupLongNeck",
-			"CleanupNametags",
-			"CleanupChams"
+			"CleanupNametags"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -523,8 +470,7 @@ Library:OnUnload(function()
 		"CleanupHitboxExpander",
 		"CleanupBeterSlide",
 		"CleanupLongNeck",
-		"CleanupNametags",
-		"CleanupChams"
+		"CleanupNametags"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

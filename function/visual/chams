@@ -1,1 +1,200 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
+local chams_settings = {
+    enabled = false,
+    material = Enum.Material.ForceField,
+    color = Color3.new(1, 0, 0),
+    transparency = 0.5,
+    teamcheck = false,
+    maxdistance = 200,
+    distancelimit = false
+}
+
+local loaded_players = {}
+local original_properties = {}
+
+local function getPlayerParts(character)
+    local parts = {}
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            parts[#parts + 1] = part
+        end
+    end
+    return parts
+end
+
+local function storeOriginalProperties(part)
+    if not original_properties[part] then
+        original_properties[part] = {
+            material = part.Material,
+            color = part.Color,
+            transparency = part.Transparency
+        }
+    end
+end
+
+local function restoreOriginalProperties(part)
+    local props = original_properties[part]
+    if props then
+        part.Material = props.material
+        part.Color = props.color
+        part.Transparency = props.transparency
+        original_properties[part] = nil
+    end
+end
+
+local function applyChams(part)
+    storeOriginalProperties(part)
+    part.Material = chams_settings.material
+    part.Color = chams_settings.color
+    part.Transparency = chams_settings.transparency
+end
+
+local function create_chams(model)
+    if not (model and model:FindFirstChild("Humanoid")) then return end
+    
+    local player = nil
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character == model then
+            player = p
+            break
+        end
+    end
+    
+    loaded_players[model] = {
+        player = player,
+        parts = getPlayerParts(model),
+        connection = nil
+    }
+    
+    local plr_data = loaded_players[model]
+    local character = model
+    local humanoid = model:FindFirstChild("Humanoid")
+    local head = model:FindFirstChild("Head")
+    
+    plr_data.connection = RunService.RenderStepped:Connect(function()
+        if not (chams_settings.enabled and character and character.Parent) then
+            for _, part in pairs(plr_data.parts) do
+                if part and part.Parent then
+                    restoreOriginalProperties(part)
+                end
+            end
+            return
+        end
+        
+        if humanoid and humanoid.Health <= 0 then
+            for _, part in pairs(plr_data.parts) do
+                if part and part.Parent then
+                    restoreOriginalProperties(part)
+                end
+            end
+            return
+        end
+        
+        if chams_settings.teamcheck and plr_data.player and Players.LocalPlayer then
+            if plr_data.player.Team == Players.LocalPlayer.Team then
+                for _, part in pairs(plr_data.parts) do
+                    if part and part.Parent then
+                        restoreOriginalProperties(part)
+                    end
+                end
+                return
+            end
+        end
+        
+        if chams_settings.distancelimit and head then
+            local distance = (Workspace.CurrentCamera.CFrame.Position - head.Position).Magnitude
+            if distance > chams_settings.maxdistance then
+                for _, part in pairs(plr_data.parts) do
+                    if part and part.Parent then
+                        restoreOriginalProperties(part)
+                    end
+                end
+                return
+            end
+        end
+        
+        for _, part in pairs(plr_data.parts) do
+            if part and part.Parent then
+                applyChams(part)
+            end
+        end
+    end)
+end
+
+local function destroy_chams(model)
+    local plr_data = loaded_players[model]
+    if not plr_data then return end
+    
+    if plr_data.connection then
+        plr_data.connection:Disconnect()
+    end
+    
+    for _, part in pairs(plr_data.parts) do
+        if part and part.Parent then
+            restoreOriginalProperties(part)
+        end
+    end
+    
+    loaded_players[model] = nil
+end
+
+for _, v in ipairs(Workspace:GetChildren()) do
+    create_chams(v)
+end
+
+Workspace.ChildAdded:Connect(create_chams)
+Workspace.ChildRemoved:Connect(destroy_chams)
+
+_G.EnableChams = function()
+    chams_settings.enabled = true
+end
+
+_G.DisableChams = function()
+    chams_settings.enabled = false
+    for model, plr_data in pairs(loaded_players) do
+        for _, part in pairs(plr_data.parts) do
+            if part and part.Parent then
+                restoreOriginalProperties(part)
+            end
+        end
+    end
+end
+
+_G.SetChamsMaterial = function(material)
+    chams_settings.material = material
+end
+
+_G.SetChamsColor = function(color)
+    chams_settings.color = color
+end
+
+_G.SetChamsTransparency = function(transparency)
+    chams_settings.transparency = transparency
+end
+
+_G.SetChamsTeamCheck = function(enabled)
+    chams_settings.teamcheck = enabled
+end
+
+_G.SetChamsMaxDistance = function(distance)
+    chams_settings.maxdistance = distance
+end
+
+_G.SetChamsDistanceLimit = function(enabled)
+    chams_settings.distancelimit = enabled
+end
+
+_G.CleanupChams = function()
+    for model, plr_data in pairs(loaded_players) do
+        destroy_chams(model)
+    end
+end
+
+game:BindToClose(function()
+    for model, plr_data in pairs(loaded_players) do
+        destroy_chams(model)
+    end
+end)

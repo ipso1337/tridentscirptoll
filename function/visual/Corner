@@ -15,13 +15,27 @@ local corner_esp_settings = {
     team_color = false, -- Use team colors
     maxdistance = 200, -- Maximum distance for ESP rendering
     distancelimit = false, -- Disable distance limit
-    corner_size = 20 -- Size of corner lines
+    corner_size = 20, -- Size of corner lines
+    sleep_check = true, -- Show sleepers toggle
+    show_sleepers = true -- Show sleeping players (when sleep_check is true)
 }
 
 -- Utility Functions
 local function worldToScreen(world)
     local screen, inBounds = Camera:WorldToViewportPoint(world)
     return Vector2.new(screen.X, screen.Y), inBounds, screen.Z
+end
+
+local function sleepCheck(character)
+    local animations = character:FindFirstChild("AnimationController") and character.AnimationController:GetPlayingAnimationTracks()
+    if animations then
+        for _, v in pairs(animations) do
+            if v.IsPlaying and v.Animation.AnimationId == "rbxassetid://13280887764" then
+                return true
+            end
+        end
+    end
+    return false
 end
 
 local function calculateCornerBox(head, hrp)
@@ -112,6 +126,14 @@ local function create_corner_esp(model)
             return
         end
 
+        -- Sleep check - hide if sleeping and show_sleepers is false
+        if corner_esp_settings.sleep_check and not corner_esp_settings.show_sleepers and sleepCheck(character) then
+            for _, line in pairs(obj) do
+                line.Visible = false
+            end
+            return
+        end
+
         local _, onScreen = worldToScreen(head.Position)
         if not onScreen then
             for _, line in pairs(obj) do
@@ -153,9 +175,11 @@ local function create_corner_esp(model)
             corner_offset = math.clamp(1/distance*750, 10, 50)
         end
 
-        -- Determine color
+        -- Determine color - special color for sleeping players
         local lineColor = corner_esp_settings.color
-        if corner_esp_settings.team_color and plr_data.player and plr_data.player.TeamColor then
+        if corner_esp_settings.sleep_check and corner_esp_settings.show_sleepers and sleepCheck(character) then
+            lineColor = Color3.new(1, 0, 1) -- Magenta for sleeping players
+        elseif corner_esp_settings.team_color and plr_data.player and plr_data.player.TeamColor then
             lineColor = plr_data.player.TeamColor.Color
         end
 
@@ -193,7 +217,7 @@ local function create_corner_esp(model)
         -- Bottom Left Corner
         obj.bl1.From = corners.bottomLeft
         obj.bl1.To = Vector2.new(corners.bottomLeft.X + corner_offset, corners.bottomLeft.Y)
-        obj.bl1.Visible = true
+        obj.bl1.visible = true
 
         obj.bl2.From = corners.bottomLeft
         obj.bl2.To = Vector2.new(corners.bottomLeft.X, corners.bottomLeft.Y - corner_offset)
@@ -241,6 +265,14 @@ end
 
 _G.EnableCornerESP = function()
     corner_esp_settings.enabled = true
+end
+
+_G.SetCornerESPSleepCheck = function(value)
+    corner_esp_settings.sleep_check = value
+end
+
+_G.SetCornerESPShowSleepers = function(value)
+    corner_esp_settings.show_sleepers = value
 end
 
 _G.CleanupCornerESP = function()

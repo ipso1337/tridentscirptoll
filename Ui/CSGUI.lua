@@ -256,6 +256,99 @@ VisualGroupBox:AddToggle("ShowWeaponsToggle", {
 	end,
 })
 
+VisualGroupBox:AddLabel("Chams")
+
+VisualGroupBox:AddToggle("ChamsToggle", {
+	Default = false,
+	Text = "Enable Chams",
+	Tooltip = "Enable wallhacks through materials",
+
+	Callback = function(Value)
+		if Value then
+			local success, err = pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/ipso1337/tridentscirptoll/refs/heads/main/function/visual/chams"))()
+				if _G.EnableChams then 
+					_G.EnableChams() 
+				end
+			end)
+			if success then
+				Library:Notify({ Title = "Chams", Description = "Chams enabled!", Time = 2 })
+			else
+				Library:Notify({ Title = "Chams", Description = "Failed to load Chams: " .. tostring(err), Time = 3 })
+			end
+		else
+			if _G.DisableChams then 
+				_G.DisableChams() 
+			end
+			Library:Notify({ Title = "Chams", Description = "Chams disabled", Time = 2 })
+		end
+	end,
+})
+
+VisualGroupBox:AddDropdown("ChamsMaterial", {
+	Values = { "ForceField", "Neon", "Glass", "Ice", "Plastic", "SmoothPlastic", "Metal", "CorrodedMetal" },
+	Default = 1,
+	Multi = false,
+	Text = "Chams Material",
+	Callback = function(Value)
+		local material = Enum.Material[Value]
+		if _G.SetChamsMaterial then 
+			_G.SetChamsMaterial(material) 
+		end
+	end,
+})
+
+VisualGroupBox:AddSlider("ChamsTransparency", {
+	Text = "Chams Transparency",
+	Default = 50,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Callback = function(Value)
+		if _G.SetChamsTransparency then 
+			_G.SetChamsTransparency(Value / 100) 
+		end
+	end,
+})
+
+VisualGroupBox:AddToggle("ChamsTeamCheck", {
+	Default = false,
+	Text = "Team Check",
+	Tooltip = "Don't apply chams to teammates",
+
+	Callback = function(Value)
+		if _G.SetChamsTeamCheck then 
+			_G.SetChamsTeamCheck(Value) 
+		end
+	end,
+})
+
+VisualGroupBox:AddToggle("ChamsDistanceLimit", {
+	Default = false,
+	Text = "Distance Limit",
+	Tooltip = "Limit chams by distance",
+
+	Callback = function(Value)
+		if _G.SetChamsDistanceLimit then 
+			_G.SetChamsDistanceLimit(Value) 
+		end
+	end,
+})
+
+VisualGroupBox:AddSlider("ChamsMaxDistance", {
+	Text = "Max Distance",
+	Default = 200,
+	Min = 50,
+	Max = 500,
+	Rounding = 0,
+	Suffix = " studs",
+	Callback = function(Value)
+		if _G.SetChamsMaxDistance then 
+			_G.SetChamsMaxDistance(Value) 
+		end
+	end,
+})
+
 VisualGroupBox:AddToggle("WatermarkToggle", {
 	Default = false,
 	Text = "Show Watermark",
@@ -405,7 +498,8 @@ MenuGroup:AddButton({
 			"CleanupHitboxExpander",
 			"CleanupBeterSlide",
 			"CleanupLongNeck",
-			"CleanupNametags"
+			"CleanupNametags",
+			"CleanupChams"
 		}
 		
 		for _, funcName in ipairs(cleanupFunctions) do
@@ -429,7 +523,8 @@ Library:OnUnload(function()
 		"CleanupHitboxExpander",
 		"CleanupBeterSlide",
 		"CleanupLongNeck",
-		"CleanupNametags"
+		"CleanupNametags",
+		"CleanupChams"
 	}
 	
 	for _, funcName in ipairs(cleanupFunctions) do

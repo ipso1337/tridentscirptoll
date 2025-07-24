@@ -98,7 +98,13 @@ local function create_nametags(model)
             nameLabel = createTextLabel("Player", settings.color, settings.text_size),
             healthBar = createHealthBar()
         },
-        connection = nil
+        connection = nil,
+        lastUpdate = {
+            text = "",
+            color = Color3.new(0, 0, 0),
+            size = 0,
+            transparency = 0
+        }
     }
     
     local plr_data = loaded_players[model]
@@ -177,12 +183,20 @@ local function create_nametags(model)
             displayText = displayText .. " | " .. weapon
         end
 
+        -- Force update text properties even if they seem the same
         obj.nameLabel.Text = displayText
         obj.nameLabel.Position = screenPos
         obj.nameLabel.Color = textColor
         obj.nameLabel.Size = textSize
         obj.nameLabel.Transparency = 1 - settings.transparency
+        obj.nameLabel.Outline = settings.outline
         obj.nameLabel.Visible = true
+
+        -- Update last values for comparison
+        plr_data.lastUpdate.text = displayText
+        plr_data.lastUpdate.color = textColor
+        plr_data.lastUpdate.size = textSize
+        plr_data.lastUpdate.transparency = settings.transparency
 
         if settings.show_health and humanoid then
             local healthPercentage = humanoid.Health / humanoid.MaxHealth
